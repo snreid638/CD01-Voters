@@ -51,12 +51,34 @@
     .county-checks label { font-weight: normal; display: flex; gap: 6px; margin: 2px 0; font-size: 12px; }
     .county-actions { font-size: 11px; margin-top: 4px; }
     .county-actions a { color: #1d4ed8; cursor: pointer; margin-right: 10px; }
-    .leaflet-popup-content {
-      min-width: 240px; max-width: 285px; width: 255px;
+    /* Leaflet uses width:auto on .leaflet-popup-content — width:100% children shrink to min-content */
+    .leaflet-popup.precinct-popup .leaflet-popup-content-wrapper {
+      min-width: 280px;
     }
-    .leaflet-popup-content .precinct-popup-text {
-      white-space: pre-line; line-height: 1.45; font-size: 12px; margin: 0;
-      min-width: 225px;
+    .leaflet-popup.precinct-popup .leaflet-popup-content {
+      margin: 10px 14px !important;
+      width: 280px !important;
+      min-width: 280px !important;
+      max-width: 300px !important;
+      box-sizing: border-box;
+    }
+    .leaflet-popup.precinct-popup .precinct-popup-text {
+      display: block;
+      width: 280px;
+      min-width: 280px;
+      max-width: 280px;
+      box-sizing: border-box;
+      line-height: 1.5;
+      font-size: 12px;
+      margin: 0;
+      padding: 0;
+    }
+    .leaflet-popup.precinct-popup .precinct-popup-text .popup-h {
+      font-weight: 600;
+      margin: 8px 0 4px;
+    }
+    .leaflet-popup.precinct-popup .precinct-popup-text .popup-h:first-child {
+      margin-top: 0;
     }
     .leaflet-tooltip.precinct-metric-label {
       background: rgba(255,255,255,0.85); border: 1px solid #94a3b8;
@@ -290,62 +312,59 @@
       return t < 0 ? interpolate("#2563eb", "#e5e7eb", 1 + t) : interpolate("#e5e7eb", "#dc2626", t);
     }
 
-    function cohortPopupLines(p, key, label) {
+    function cohortPopupLine(p, key, label) {
       const n = p[key] || 0;
-      if (!n) return [];
+      if (!n) return null;
       const pctCd01 = p[key + "_cd01_pct"];
       const pctPrec = p[key + "_pct"];
-      const out = [`  ${label}: ${n.toLocaleString()}`];
-      if (pctCd01 != null) out.push(`    ${pctCd01}% of CD01`);
-      if (pctPrec != null && p.voters) out.push(`    ${pctPrec}% of precinct`);
-      return out;
+      let s = `${label}: <b>${n.toLocaleString()}</b>`;
+      if (pctCd01 != null) s += ` · ${pctCd01}% of CD01`;
+      if (pctPrec != null && p.voters) s += ` · ${pctPrec}% of precinct`;
+      return s;
     }
 
     function popup(p) {
-      const lines = [];
-      const header = `${p.county} · precinct ${p.precinct}`
+      const title = `${p.county} · precinct ${p.precinct}`
         + (p.label ? ` (${p.label})` : "");
-      lines.push(header);
+      const parts = [
+        '<div class="precinct-popup-text">',
+        `<div class="popup-h">${title}</div>`,
+      ];
 
       if (p.has_cd01_voters) {
         const pctCd01 = (100 * p.voters / META.cd01_total_voters).toFixed(2);
-        lines.push("");
-        lines.push("Registration");
-        lines.push(`  Registrants: ${p.voters.toLocaleString()}`);
-        lines.push(`  Share of CD01: ${pctCd01}%`);
-        lines.push(`  REP: ${p.rep_pct}%`);
-        lines.push(`  DEM: ${p.dem_pct}%`);
-        lines.push(`  UNA: ${p.una_pct}%`);
-        lines.push(`  Inactive: ${p.inactive_pct}%`);
+        parts.push('<div class="popup-h">Registration</div>');
+        parts.push(`Registrants: <b>${p.voters.toLocaleString()}</b><br/>`);
+        parts.push(`Share of CD01: ${pctCd01}%<br/>`);
+        parts.push(`REP / DEM / UNA: ${p.rep_pct}% / ${p.dem_pct}% / ${p.una_pct}%<br/>`);
+        parts.push(`Inactive (all parties): ${p.inactive_pct}%`);
 
-        const cohortLines = [];
+        const cohortParts = [];
         Object.entries(META.cohorts || {}).forEach(([k, c]) => {
-          cohortPopupLines(p, k, c.label.split(" (")[0]).forEach(l => cohortLines.push(l));
+          const line = cohortPopupLine(p, k, c.label.split(" (")[0]);
+          if (line) cohortParts.push(line);
         });
-        if (cohortLines.length) {
-          lines.push("");
-          lines.push("Outreach cohorts");
-          cohortLines.forEach(l => lines.push(l));
+        if (cohortParts.length) {
+          parts.push('<div class="popup-h">Outreach cohorts</div>');
+          parts.push(cohortParts.join("<br/>"));
         }
       } else {
-        lines.push("");
-        lines.push("No CD01 registrants in this precinct.");
+        parts.push("<br/>No CD01 registrants in this precinct.");
       }
 
       if (p.pct_dem_lead != null) {
         const lead = (p.pct_dem_lead * 100).toFixed(1);
-        lines.push("");
-        lines.push("2024 president (2-way margin)");
-        lines.push(lead >= 0
-          ? `  Harris +${lead}%`
-          : `  Trump +${Math.abs(lead)}%`);
+        const winner = lead >= 0 ? "Harris" : "Trump";
+        const margin = Math.abs(Number(lead)).toFixed(1);
+        parts.push('<div class="popup-h">2024 president (2-way margin)</div>');
+        parts.push(`${winner} +${margin}%`);
         if (!p.has_cd01_voters) {
-          lines.push("");
-          lines.push("Precinct outside CD01 voter footprint (county shown).");
+          parts.push("<br/><i>Precinct outside CD01 voter footprint (county shown).</i>");
         }
       }
 
-      return '<p class="precinct-popup-text">' + lines.join("\n") + "</p>";
+      parts.push("</div>");
+      return parts.join("");
     }
 
     function metricNumerator(metric, p) {
@@ -455,7 +474,7 @@
           };
         },
         onEachFeature: (f, l) => {
-          l.bindPopup(() => popup(f.properties), { minWidth: 240, maxWidth: 285 });
+          l.bindPopup(() => popup(f.properties), { minWidth: 260, maxWidth: 320 });
           if (!document.getElementById("show-precinct-counts").checked) return;
           const n = metricNumerator(metric, f.properties);
           const text = formatMetricLabel(metric, n);
