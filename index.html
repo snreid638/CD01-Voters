@@ -16,13 +16,23 @@
       font-size: 13px; line-height: 1.4; max-height: 92vh; overflow-y: auto;
     }
     .panel.dragging { user-select: none; }
-    .panel-drag-handle {
-      margin: 0 -14px 8px; padding: 10px 14px 8px;
-      font-size: 16px; font-weight: 600; cursor: grab;
+    .panel-header {
+      margin: 0 -14px 0; padding: 8px 10px 8px 14px;
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
       background: #f8fafc; border-radius: 8px 8px 0 0;
-      border-bottom: 1px solid #e5e7eb;
+      border-bottom: 1px solid #e5e7eb; cursor: grab;
     }
-    .panel-drag-handle:active { cursor: grabbing; }
+    .panel-header:active { cursor: grabbing; }
+    .panel-header h1 { margin: 0; font-size: 16px; font-weight: 600; flex: 1; }
+    #panel-toggle {
+      flex-shrink: 0; width: 28px; height: 28px; border: 1px solid #cbd5e1;
+      border-radius: 4px; background: #fff; cursor: pointer; font-size: 18px; line-height: 1;
+      color: #334155; padding: 0;
+    }
+    #panel-toggle:hover { background: #f1f5f9; }
+    .panel.collapsed .panel-body { display: none; }
+    .panel.collapsed .panel-header { border-bottom: none; border-radius: 8px; }
+    .panel-body { padding-top: 8px; }
     .panel label { display: block; margin-top: 8px; font-weight: 600; }
     .panel select { width: 100%; margin-top: 4px; }
     .legend-bar {
@@ -53,7 +63,11 @@
 <body>
   <div id="map"></div>
   <div class="panel" id="control-panel">
-    <h1 class="panel-drag-handle" title="Drag to move">CD01 precinct map</h1>
+    <div class="panel-header panel-drag-handle" title="Drag to move">
+      <h1>CD01 precinct map</h1>
+      <button type="button" id="panel-toggle" aria-expanded="true" title="Collapse panel">−</button>
+    </div>
+    <div class="panel-body" id="panel-body">
     <p id="load-status">Loading precinct data…</p>
     <p id="load-error" style="display:none"></p>
     <label for="metric">Color by</label>
@@ -90,11 +104,12 @@
     <table class="county-table" id="county-table"></table>
     <p class="footnote" id="meta"></p>
     <p class="footnote">Aggregates only · Not official SBE · MD iMap boundaries</p>
+    </div>
   </div>
   <script>
     const GEO_URL = "cd01_precincts.geojson";
     const COUNTIES = {"Harford":{"voters":209632,"rep_pct":41.1,"dem_pct":32.3,"una_pct":24.6,"inactive_pct":5.0,"inactive_dem":3366,"inactive_una":3237,"reg_margin":0.088},"Cecil":{"voters":79369,"rep_pct":47.5,"dem_pct":25.5,"una_pct":24.9,"inactive_pct":6.3,"inactive_dem":1566,"inactive_una":1546,"reg_margin":0.22},"Wicomico":{"voters":72356,"rep_pct":35.8,"dem_pct":38.0,"una_pct":24.1,"inactive_pct":6.5,"inactive_dem":1862,"inactive_una":1271,"reg_margin":-0.022},"Baltimore County":{"voters":46836,"rep_pct":42.3,"dem_pct":33.3,"una_pct":22.6,"inactive_pct":3.6,"inactive_dem":570,"inactive_una":419,"reg_margin":0.089},"Worcester":{"voters":46818,"rep_pct":45.8,"dem_pct":30.0,"una_pct":22.3,"inactive_pct":5.4,"inactive_dem":687,"inactive_una":692,"reg_margin":0.158},"Queen Anne's":{"voters":43997,"rep_pct":49.2,"dem_pct":26.5,"una_pct":22.7,"inactive_pct":4.0,"inactive_dem":453,"inactive_una":488,"reg_margin":0.227},"Talbot":{"voters":30755,"rep_pct":40.0,"dem_pct":36.0,"una_pct":22.4,"inactive_pct":6.0,"inactive_dem":680,"inactive_una":537,"reg_margin":0.04},"Dorchester":{"voters":25243,"rep_pct":39.9,"dem_pct":38.6,"una_pct":19.6,"inactive_pct":3.6,"inactive_dem":343,"inactive_una":262,"reg_margin":0.014},"Caroline":{"voters":24081,"rep_pct":48.9,"dem_pct":25.8,"una_pct":23.4,"inactive_pct":4.5,"inactive_dem":324,"inactive_una":337,"reg_margin":0.232},"Somerset":{"voters":15253,"rep_pct":42.8,"dem_pct":36.0,"una_pct":19.2,"inactive_pct":3.3,"inactive_dem":185,"inactive_una":134,"reg_margin":0.069},"Kent":{"voters":15073,"rep_pct":38.5,"dem_pct":38.7,"una_pct":21.1,"inactive_pct":4.5,"inactive_dem":259,"inactive_una":184,"reg_margin":-0.003}};
-    const META = {"boundary_source":"Maryland iMap Election Boundaries 2026","precinct_features":545,"precinct_with_cd01_registration":303,"voter_precinct_groups":309,"precinct_with_2024_election":417,"cd01_total_voters":609413,"cohorts":{"inactive_dem":{"label":"Inactive DEM (C01)","count":10295,"pct_cd01":1.69},"inactive_una":{"label":"Inactive UNA 2020+ (C02)","count":3333,"pct_cd01":0.55},"una_persuasion":{"label":"UNA persuasion active 2018+ (B01)","count":53737,"pct_cd01":8.82}},"pct_scales":{"una_pct":{"lo":17.8,"hi":27.4,"caption":"UNA share of precinct registrants"},"inactive_pct":{"lo":2.5,"hi":7.4,"caption":"Inactive share of precinct registrants"},"inactive_dem_pct":{"lo":0.5,"hi":2.9,"caption":"Inactive DEM share of precinct"},"inactive_una_pct":{"lo":0.0,"hi":1.0,"caption":"Inactive UNA (2020+) share of precinct"},"una_persuasion_pct":{"lo":5.8,"hi":12.1,"caption":"UNA persuasion pool share of precinct"}}};
+    const META = {"boundary_source":"Maryland iMap Election Boundaries 2026","precinct_features":549,"precinct_with_cd01_registration":307,"voter_precinct_groups":309,"precinct_with_2024_election":421,"cd01_total_voters":609413,"cohorts":{"inactive_dem":{"label":"Inactive DEM (C01)","count":10295,"pct_cd01":1.69},"inactive_una":{"label":"Inactive UNA 2020+ (C02)","count":3333,"pct_cd01":0.55},"una_persuasion":{"label":"UNA persuasion active 2018+ (B01)","count":53737,"pct_cd01":8.82}},"pct_scales":{"una_pct":{"lo":17.8,"hi":27.4,"caption":"UNA share of precinct registrants"},"inactive_pct":{"lo":2.5,"hi":7.4,"caption":"Inactive share of precinct registrants"},"inactive_dem_pct":{"lo":0.5,"hi":2.9,"caption":"Inactive DEM share of precinct"},"inactive_una_pct":{"lo":0.0,"hi":1.0,"caption":"Inactive UNA (2020+) share of precinct"},"una_persuasion_pct":{"lo":5.8,"hi":12.1,"caption":"UNA persuasion pool share of precinct"}}};
     const COHORT_KEYS = ["inactive_dem","inactive_una","una_persuasion"];
 
     const map = L.map("map", { scrollWheelZoom: true });
@@ -199,8 +214,8 @@
         .sort((a, b) => a[0].localeCompare(b[0]))
         .map(([name, s]) =>
           `<tr><td>${name}</td><td>${s.voters.toLocaleString()}</td>`
-          + `<td>${s.inactive_dem}/${s.inactive_una}</td>`
-          + `<td>${s.rep_pct}/${s.dem_pct}/${s.una_pct}</td></tr>`
+          + `<td>${s.inactive_dem} / ${s.inactive_una}</td>`
+          + `<td>${s.rep_pct} / ${s.dem_pct} / ${s.una_pct}</td></tr>`
         ).join("");
 
       let countyFoot = "";
@@ -210,8 +225,8 @@
         const unaPct = (100 * unaV / totalVoters).toFixed(1);
         countyFoot = `<tr style="font-weight:600;border-top:1px solid #ccc">`
           + `<td>Selected total</td><td>${totalVoters.toLocaleString()}</td>`
-          + `<td>${inactDem}/${inactUna}</td>`
-          + `<td>${repPct}/${demPct}/${unaPct}</td></tr>`;
+          + `<td>${inactDem} / ${inactUna}</td>`
+          + `<td>${repPct} / ${demPct} / ${unaPct}</td></tr>`;
       }
       document.getElementById("county-table").innerHTML =
         "<thead><tr><th>County</th><th>Voters</th><th>Inact D/U</th><th>R/D/U%</th></tr></thead>"
@@ -423,6 +438,24 @@
     document.getElementById("metric").addEventListener("change", draw);
     initCountyChecks();
 
+    function initPanelCollapse() {
+      const panel = document.getElementById("control-panel");
+      const btn = document.getElementById("panel-toggle");
+      const collapsed = localStorage.getItem("cd01-panel-collapsed") === "1";
+      function setCollapsed(c) {
+        panel.classList.toggle("collapsed", c);
+        btn.textContent = c ? "+" : "−";
+        btn.title = c ? "Expand panel" : "Collapse panel";
+        btn.setAttribute("aria-expanded", c ? "false" : "true");
+        localStorage.setItem("cd01-panel-collapsed", c ? "1" : "0");
+      }
+      setCollapsed(collapsed);
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        setCollapsed(!panel.classList.contains("collapsed"));
+      });
+    }
+
     function initPanelDrag() {
       const panel = document.getElementById("control-panel");
       const handle = panel.querySelector(".panel-drag-handle");
@@ -438,7 +471,7 @@
       } catch (e) {}
 
       handle.addEventListener("mousedown", (e) => {
-        if (e.button !== 0) return;
+        if (e.button !== 0 || e.target.closest("#panel-toggle")) return;
         dragging = true;
         panel.classList.add("dragging");
         const rect = panel.getBoundingClientRect();
@@ -474,6 +507,7 @@
         }));
       });
     }
+    initPanelCollapse();
     initPanelDrag();
 
     fetch(GEO_URL)
