@@ -111,6 +111,7 @@
     const COUNTIES = {"Harford":{"voters":209632,"rep_pct":41.1,"dem_pct":32.3,"una_pct":24.6,"inactive_pct":5.0,"inactive_dem":3366,"inactive_una":3237,"reg_margin":0.088},"Cecil":{"voters":79369,"rep_pct":47.5,"dem_pct":25.5,"una_pct":24.9,"inactive_pct":6.3,"inactive_dem":1566,"inactive_una":1546,"reg_margin":0.22},"Wicomico":{"voters":72356,"rep_pct":35.8,"dem_pct":38.0,"una_pct":24.1,"inactive_pct":6.5,"inactive_dem":1862,"inactive_una":1271,"reg_margin":-0.022},"Baltimore County":{"voters":46836,"rep_pct":42.3,"dem_pct":33.3,"una_pct":22.6,"inactive_pct":3.6,"inactive_dem":570,"inactive_una":419,"reg_margin":0.089},"Worcester":{"voters":46818,"rep_pct":45.8,"dem_pct":30.0,"una_pct":22.3,"inactive_pct":5.4,"inactive_dem":687,"inactive_una":692,"reg_margin":0.158},"Queen Anne's":{"voters":43997,"rep_pct":49.2,"dem_pct":26.5,"una_pct":22.7,"inactive_pct":4.0,"inactive_dem":453,"inactive_una":488,"reg_margin":0.227},"Talbot":{"voters":30755,"rep_pct":40.0,"dem_pct":36.0,"una_pct":22.4,"inactive_pct":6.0,"inactive_dem":680,"inactive_una":537,"reg_margin":0.04},"Dorchester":{"voters":25243,"rep_pct":39.9,"dem_pct":38.6,"una_pct":19.6,"inactive_pct":3.6,"inactive_dem":343,"inactive_una":262,"reg_margin":0.014},"Caroline":{"voters":24081,"rep_pct":48.9,"dem_pct":25.8,"una_pct":23.4,"inactive_pct":4.5,"inactive_dem":324,"inactive_una":337,"reg_margin":0.232},"Somerset":{"voters":15253,"rep_pct":42.8,"dem_pct":36.0,"una_pct":19.2,"inactive_pct":3.3,"inactive_dem":185,"inactive_una":134,"reg_margin":0.069},"Kent":{"voters":15073,"rep_pct":38.5,"dem_pct":38.7,"una_pct":21.1,"inactive_pct":4.5,"inactive_dem":259,"inactive_una":184,"reg_margin":-0.003}};
     const META = {"boundary_source":"Maryland iMap Election Boundaries 2026","precinct_features":549,"precinct_with_cd01_registration":307,"voter_precinct_groups":309,"precinct_with_2024_election":421,"cd01_total_voters":609413,"cohorts":{"inactive_dem":{"label":"Inactive DEM (C01)","count":10295,"pct_cd01":1.69},"inactive_una":{"label":"Inactive UNA 2020+ (C02)","count":3333,"pct_cd01":0.55},"una_persuasion":{"label":"UNA persuasion active 2018+ (B01)","count":53737,"pct_cd01":8.82}},"pct_scales":{"una_pct":{"lo":17.8,"hi":27.4,"caption":"UNA share of precinct registrants"},"inactive_pct":{"lo":2.5,"hi":7.4,"caption":"Inactive share of precinct registrants"},"inactive_dem_pct":{"lo":0.5,"hi":2.9,"caption":"Inactive DEM share of precinct"},"inactive_una_pct":{"lo":0.0,"hi":1.0,"caption":"Inactive UNA (2020+) share of precinct"},"una_persuasion_pct":{"lo":5.8,"hi":12.1,"caption":"UNA persuasion pool share of precinct"}}};
     const COHORT_KEYS = ["inactive_dem","inactive_una","una_persuasion"];
+    const DEFAULT_COUNTIES = ["Kent","Queen Anne's"];
 
     const map = L.map("map", { scrollWheelZoom: true });
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -122,7 +123,9 @@
     let shareMax = {};
     let pctScalesLive = null;
     const PCT_FIELDS = ["una_pct","inactive_pct","inactive_dem_pct","inactive_una_pct","una_persuasion_pct"];
-    const selectedCounties = new Set(Object.keys(COUNTIES));
+    const selectedCounties = new Set(
+      DEFAULT_COUNTIES.filter(c => Object.prototype.hasOwnProperty.call(COUNTIES, c))
+    );
 
     function isShareCd01Metric(m) { return m.endsWith("_cd01_pct"); }
 
@@ -409,10 +412,11 @@
     function initCountyChecks() {
       const box = document.getElementById("county-checks");
       const sorted = Object.entries(COUNTIES).sort((a, b) => a[0].localeCompare(b[0]));
-      box.innerHTML = sorted.map(([name, s]) =>
-        `<label><input type="checkbox" checked data-county="${name}"/> `
-        + `${name} <span style="color:#666">(${s.voters.toLocaleString()})</span></label>`
-      ).join("");
+      box.innerHTML = sorted.map(([name, s]) => {
+        const on = selectedCounties.has(name);
+        return `<label><input type="checkbox" ${on ? "checked" : ""} data-county="${name}"/> `
+          + `${name} <span style="color:#666">(${s.voters.toLocaleString()})</span></label>`;
+      }).join("");
       box.querySelectorAll("input").forEach(inp => {
         inp.addEventListener("change", () => {
           if (inp.checked) selectedCounties.add(inp.dataset.county);
