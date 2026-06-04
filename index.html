@@ -47,10 +47,60 @@
     .county-table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 11px; }
     .county-table th, .county-table td { text-align: left; padding: 2px 4px; border-bottom: 1px solid #eee; }
     #load-error { color: #b91c1c; font-weight: 600; }
-    .county-checks { max-height: 140px; overflow-y: auto; margin-top: 4px; border: 1px solid #e5e7eb; border-radius: 4px; padding: 6px; }
-    .county-checks label { font-weight: normal; display: flex; gap: 6px; margin: 2px 0; font-size: 12px; }
-    .county-actions { font-size: 11px; margin-top: 4px; }
-    .county-actions a { color: #1d4ed8; cursor: pointer; margin-right: 10px; }
+    .county-checks, .cohort-checks { max-height: 140px; overflow-y: auto; margin-top: 4px; border: 1px solid #e5e7eb; border-radius: 4px; padding: 6px; }
+    .county-checks label, .cohort-checks label { font-weight: normal; display: flex; gap: 6px; margin: 2px 0; font-size: 12px; }
+    .county-actions, .cohort-actions { font-size: 11px; margin-top: 4px; }
+    .county-actions a, .cohort-actions a { color: #1d4ed8; cursor: pointer; margin-right: 10px; }
+    #tier-hint { margin-top: 4px; }
+    #campaign-cohorts-block { margin-top: 4px; }
+    .label-row {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 8px; margin-top: 8px;
+    }
+    .label-row label { margin-top: 0; flex: 1; }
+    #cohort-info-btn {
+      flex-shrink: 0; width: 28px; height: 28px; border: 1px solid #cbd5e1;
+      border-radius: 50%; background: #fff; cursor: pointer; font-size: 14px;
+      font-weight: 700; color: #1d4ed8; padding: 0; line-height: 1;
+    }
+    #cohort-info-btn:hover { background: #eff6ff; }
+    .info-modal {
+      position: fixed; inset: 0; z-index: 2000; display: flex;
+      align-items: center; justify-content: center; padding: 16px;
+    }
+    .info-modal[hidden] { display: none; }
+    .info-modal-backdrop {
+      position: absolute; inset: 0; background: rgba(15, 23, 42, 0.45);
+    }
+    .info-modal-dialog {
+      position: relative; background: #fff; border-radius: 8px;
+      box-shadow: 0 8px 32px rgba(0,0,0,.2); max-width: 720px; width: 100%;
+      max-height: 85vh; display: flex; flex-direction: column;
+    }
+    .info-modal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 16px; border-bottom: 1px solid #e5e7eb;
+    }
+    .info-modal-header h2 { margin: 0; font-size: 16px; font-weight: 600; }
+    #cohort-info-close {
+      width: 32px; height: 32px; border: none; background: transparent;
+      font-size: 24px; line-height: 1; cursor: pointer; color: #64748b;
+    }
+    #cohort-info-close:hover { color: #0f172a; }
+    .info-modal-body {
+      padding: 12px 16px 16px; overflow-y: auto; font-size: 12px;
+    }
+    .info-ref-table {
+      width: 100%; border-collapse: collapse; font-size: 12px; line-height: 1.45;
+    }
+    .info-ref-table th, .info-ref-table td {
+      text-align: left; vertical-align: top; padding: 8px 10px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    .info-ref-table th { background: #f8fafc; font-weight: 600; }
+    .info-ref-table td:first-child { white-space: nowrap; width: 1%; }
+    .info-ref-table td:nth-child(2) { white-space: nowrap; width: 1%; }
+    .info-modal-note { margin: 0 0 10px; color: #555; font-size: 11px; }
     /* Leaflet uses width:auto on .leaflet-popup-content — width:100% children shrink to min-content */
     .leaflet-popup.precinct-popup .leaflet-popup-content-wrapper {
       min-width: 280px;
@@ -98,26 +148,35 @@
     <div class="panel-body" id="panel-body">
     <p id="load-status">Loading precinct data…</p>
     <p id="load-error" style="display:none"></p>
-    <label for="metric">Color by</label>
-    <select id="metric" disabled>
-      <optgroup label="Registration / election">
+    <div class="label-row">
+      <label for="campaign-type">Campaign Type</label>
+      <button type="button" id="cohort-info-btn" title="Campaign tiers and cohort definitions" aria-haspopup="dialog">i</button>
+    </div>
+    <select id="campaign-type" disabled>
+      <option value="election_context" selected>Election context</option>
+      <option value="A">Turnout</option>
+      <option value="B">Vote / Persuasion</option>
+      <option value="C">Registration</option>
+      <option value="D">Outreach</option>
+    </select>
+    <p id="tier-hint" class="footnote"></p>
+    <div id="election-context-block">
+      <label for="election-metric">Election layer</label>
+      <select id="election-metric" disabled>
         <option value="reg_margin">Registration lean (REP − DEM)</option>
         <option value="pct_dem_lead">2024 president (Harris vs Trump margin)</option>
-      </optgroup>
-      <optgroup label="Cohort share of all CD01 voters">
         <option value="all_una_cd01_pct">All UNA — % of CD01</option>
-        <option value="inactive_dem_cd01_pct">Inactive DEM — % of CD01</option>
-        <option value="inactive_una_cd01_pct">Inactive UNA (2018+) — % of CD01</option>
-        <option value="una_persuasion_cd01_pct">Active UNA (2018+) — % of CD01</option>
-      </optgroup>
-      <optgroup label="Cohort share within precinct">
-        <option value="una_pct">All UNA % of precinct</option>
-        <option value="inactive_pct">Inactive % of precinct (all parties)</option>
-        <option value="inactive_dem_pct">Inactive DEM % of precinct</option>
-        <option value="inactive_una_pct">Inactive UNA (2018+) % of precinct</option>
-        <option value="una_persuasion_pct">Active UNA (2018+) % of precinct</option>
-      </optgroup>
-    </select>
+      </select>
+    </div>
+    <div id="campaign-cohorts-block" style="display:none">
+      <h2 class="section" style="margin-top:10px">Cohorts in this campaign</h2>
+      <p class="footnote" style="margin-top:0">Map colors sum checked cohorts (% of CD01).</p>
+      <div class="cohort-actions">
+        <a id="cohort-all">All</a>
+        <a id="cohort-none">None</a>
+      </div>
+      <div class="cohort-checks" id="cohort-checks"></div>
+    </div>
     <div class="legend-bar" id="legend-bar"></div>
     <div class="legend-labels" id="legend-labels"><span id="leg-lo">Low</span><span>—</span><span id="leg-hi">High</span></div>
     <p id="legend-caption"></p>
@@ -132,20 +191,36 @@
       <a id="county-none">None</a>
     </div>
     <div class="county-checks" id="county-checks"></div>
-    <h2 class="section">Cohort totals <span id="cohort-scope" style="font-weight:normal;color:#555"></span></h2>
+    <h2 class="section" id="cohort-totals-heading">Cohort totals <span id="cohort-scope" style="font-weight:normal;color:#555"></span></h2>
     <table class="county-table" id="cohort-table"></table>
     <table class="county-table" id="county-table"></table>
     <p class="footnote" id="meta"></p>
     <p class="footnote">Aggregates only · Not official SBE · MD iMap boundaries</p>
     </div>
   </div>
+  <div id="cohort-info-modal" class="info-modal" hidden role="dialog" aria-modal="true" aria-labelledby="cohort-info-title">
+    <div class="info-modal-backdrop" id="cohort-info-backdrop"></div>
+    <div class="info-modal-dialog">
+      <div class="info-modal-header">
+        <h2 id="cohort-info-title">Campaign tiers &amp; cohorts</h2>
+        <button type="button" id="cohort-info-close" title="Close">&times;</button>
+      </div>
+      <div class="info-modal-body">
+        <p class="info-modal-note">District-wide definitions (CD01). Use county checkboxes on the map to limit geography. Campaign layers sum checked cohorts as % of CD01.</p>
+        <table class="info-ref-table"><thead><tr><th>Campaign tier</th><th>Cohort</th><th>Who&rsquo;s included</th></tr></thead><tbody><tr><td>Turnout</td><td>Active DEM (A01)</td><td>CD01 Democrats with active status (not inactive on the rolls).</td></tr><tr><td>Vote / Persuasion</td><td>Active UNA (2018+) (B01)</td><td>Active unaffiliated voters in CD01 whose first MD registration year is 2018 or later.</td></tr><tr><td>Vote / Persuasion</td><td>Active UNA (pre-2018) (B02)</td><td>Active unaffiliated voters registered before 2018 (or missing reg date).</td></tr><tr><td>Registration</td><td>Inactive DEM (C01)</td><td>Democrats marked inactive (I) — need re-registration or status fix to vote.</td></tr><tr><td>Registration</td><td>Inactive UNA (2018+) (C02)</td><td>Inactive unaffiliated voters with registration year 2018 or later.</td></tr><tr><td>Registration</td><td>Inactive UNA (pre-2018) (C02b)</td><td>Inactive unaffiliated voters registered before 2018 (or missing reg date).</td></tr><tr><td>Registration</td><td>New registrants 2022–25 (DEM+UNA, active) (C03)</td><td>Active Democrats and unaffiliated voters who first registered in 2022–2025.</td></tr><tr><td>Registration</td><td>Inactive REP (C04)</td><td>Republicans marked inactive — reactivation or list hygiene (not Dem targets).</td></tr><tr><td>Outreach</td><td>Active DEM (D01)</td><td>Same voters as A01: active Democrats in CD01 (field universe for door-to-door).</td></tr><tr><td>Outreach</td><td>Active UNA (D02)</td><td>All active unaffiliated voters in CD01 (any registration year; includes B01 subset).</td></tr><tr><td>Election context</td><td>—</td><td>Backdrop layers (not summed cohorts). Use county filter to scope geography.</td></tr><tr><td>Election context</td><td>Registration lean (REP − DEM)</td><td>All CD01 registrants in precinct; color = (REP count − DEM count) ÷ total.</td></tr><tr><td>Election context</td><td>2024 president (Harris vs Trump margin)</td><td>Precincts with NYT 2024 two-way vote; margin for Harris vs Trump.</td></tr><tr><td>Election context</td><td>All UNA — % of CD01</td><td>Each precinct’s share of all CD01 unaffiliated registrants (any status).</td></tr></tbody></table>
+      </div>
+    </div>
+  </div>
   <script>
     const GEO_URL = "cd01_precincts.geojson";
     const COUNTIES = {"Harford":{"voters":209632,"rep_pct":41.1,"dem_pct":32.3,"una_pct":24.6,"inactive_pct":5.0,"inactive_dem":3366,"inactive_una":3237,"reg_margin":0.088},"Cecil":{"voters":79369,"rep_pct":47.5,"dem_pct":25.5,"una_pct":24.9,"inactive_pct":6.3,"inactive_dem":1566,"inactive_una":1546,"reg_margin":0.22},"Wicomico":{"voters":72356,"rep_pct":35.8,"dem_pct":38.0,"una_pct":24.1,"inactive_pct":6.5,"inactive_dem":1862,"inactive_una":1271,"reg_margin":-0.022},"Baltimore County":{"voters":46836,"rep_pct":42.3,"dem_pct":33.3,"una_pct":22.6,"inactive_pct":3.6,"inactive_dem":570,"inactive_una":419,"reg_margin":0.089},"Worcester":{"voters":46818,"rep_pct":45.8,"dem_pct":30.0,"una_pct":22.3,"inactive_pct":5.4,"inactive_dem":687,"inactive_una":692,"reg_margin":0.158},"Queen Anne's":{"voters":43997,"rep_pct":49.2,"dem_pct":26.5,"una_pct":22.7,"inactive_pct":4.0,"inactive_dem":453,"inactive_una":488,"reg_margin":0.227},"Talbot":{"voters":30755,"rep_pct":40.0,"dem_pct":36.0,"una_pct":22.4,"inactive_pct":6.0,"inactive_dem":680,"inactive_una":537,"reg_margin":0.04},"Dorchester":{"voters":25243,"rep_pct":39.9,"dem_pct":38.6,"una_pct":19.6,"inactive_pct":3.6,"inactive_dem":343,"inactive_una":262,"reg_margin":0.014},"Caroline":{"voters":24081,"rep_pct":48.9,"dem_pct":25.8,"una_pct":23.4,"inactive_pct":4.5,"inactive_dem":324,"inactive_una":337,"reg_margin":0.232},"Somerset":{"voters":15253,"rep_pct":42.8,"dem_pct":36.0,"una_pct":19.2,"inactive_pct":3.3,"inactive_dem":185,"inactive_una":134,"reg_margin":0.069},"Kent":{"voters":15073,"rep_pct":38.5,"dem_pct":38.7,"una_pct":21.1,"inactive_pct":4.5,"inactive_dem":259,"inactive_una":184,"reg_margin":-0.003}};
-    const META = {"boundary_source":"Maryland iMap Election Boundaries 2026","precinct_features":549,"precinct_with_cd01_registration":307,"voter_precinct_groups":309,"precinct_with_2024_election":421,"cd01_total_voters":609413,"cohorts":{"inactive_dem":{"label":"Inactive DEM (C01)","count":10295,"pct_cd01":1.69},"inactive_una":{"label":"Inactive UNA (2018+) (C02)","count":4426,"pct_cd01":0.73},"una_persuasion":{"label":"Active UNA (2018+) (B01)","count":53737,"pct_cd01":8.82}},"pct_scales":{"una_pct":{"lo":17.8,"hi":27.4,"caption":"All UNA share of precinct registrants"},"inactive_pct":{"lo":2.5,"hi":7.4,"caption":"Inactive share of precinct registrants"},"inactive_dem_pct":{"lo":0.5,"hi":2.9,"caption":"Inactive DEM share of precinct"},"inactive_una_pct":{"lo":0.0,"hi":1.3,"caption":"Inactive UNA (2018+) share of precinct"},"una_persuasion_pct":{"lo":5.8,"hi":12.1,"caption":"Active UNA (2018+) share of precinct"}}};
-    const COHORT_KEYS = ["inactive_dem","inactive_una","una_persuasion"];
-    const CD01_SHARE_FIELDS = ["inactive_dem_cd01_pct","inactive_una_cd01_pct","una_persuasion_cd01_pct","all_una_cd01_pct"];
+    const META = {"boundary_source":"Maryland iMap Election Boundaries 2026","precinct_features":549,"precinct_with_cd01_registration":307,"voter_precinct_groups":309,"precinct_with_2024_election":421,"cd01_total_voters":609413,"cohorts":{"dem_active":{"label":"Active DEM (A01)","tier":"A","code":"A01","count":184853,"pct_cd01":30.33},"una_active_2018plus":{"label":"Active UNA (2018+) (B01)","tier":"B","code":"B01","count":53737,"pct_cd01":8.82},"una_active_pre2018":{"label":"Active UNA (pre-2018) (B02)","tier":"B","code":"B02","count":80465,"pct_cd01":13.2},"inactive_dem":{"label":"Inactive DEM (C01)","tier":"C","code":"C01","count":10295,"pct_cd01":1.69},"inactive_una_2018plus":{"label":"Inactive UNA (2018+) (C02)","tier":"C","code":"C02","count":4426,"pct_cd01":0.73},"inactive_una_pre2018":{"label":"Inactive UNA (pre-2018) (C02b)","tier":"C","code":"C02b","count":4682,"pct_cd01":0.77},"new_reg_2022_25":{"label":"New registrants 2022\u201325 (DEM+UNA, active) (C03)","tier":"C","code":"C03","count":53197,"pct_cd01":8.73},"inactive_rep":{"label":"Inactive REP (C04)","tier":"C","code":"C04","count":10976,"pct_cd01":1.8},"outreach_dem":{"label":"Active DEM (D01)","tier":"D","code":"D01","count":184853,"pct_cd01":30.33},"una_active":{"label":"Active UNA (D02)","tier":"D","code":"D02","count":134201,"pct_cd01":22.02}},"campaign_tiers":{"A":{"label":"Turnout","hint":"Mobilize active Democrats across selected counties.","cohorts":["dem_active"],"default_checked":["dem_active"]},"B":{"label":"Vote / Persuasion","hint":"Persuade and turn out active UNA (registered 2018+).","cohorts":["una_active_2018plus","una_active_pre2018"],"default_checked":["una_active_2018plus"]},"C":{"label":"Registration","hint":"Re-register inactive voters and engage new registrants.","cohorts":["inactive_dem","inactive_una_2018plus","inactive_una_pre2018","new_reg_2022_25","inactive_rep"],"default_checked":["inactive_dem","inactive_una_2018plus"]},"D":{"label":"Outreach","hint":"Field targeting: active Democrats and unaffiliated voters.","cohorts":["outreach_dem","una_active"],"default_checked":["outreach_dem","una_active"]}}};
+    const COHORT_KEYS = ["dem_active","una_active_2018plus","una_active_pre2018","inactive_dem","inactive_una_2018plus","inactive_una_pre2018","new_reg_2022_25","inactive_rep","outreach_dem","una_active"];
+    const CD01_SHARE_FIELDS = ["dem_active_cd01_pct","una_active_2018plus_cd01_pct","una_active_pre2018_cd01_pct","inactive_dem_cd01_pct","inactive_una_2018plus_cd01_pct","inactive_una_pre2018_cd01_pct","new_reg_2022_25_cd01_pct","inactive_rep_cd01_pct","outreach_dem_cd01_pct","una_active_cd01_pct","all_una_cd01_pct"];
+    const CAMPAIGN_TIERS = {"A":{"label":"Turnout","hint":"Mobilize active Democrats across selected counties.","cohorts":["dem_active"],"default_checked":["dem_active"]},"B":{"label":"Vote / Persuasion","hint":"Persuade and turn out active UNA (registered 2018+).","cohorts":["una_active_2018plus","una_active_pre2018"],"default_checked":["una_active_2018plus"]},"C":{"label":"Registration","hint":"Re-register inactive voters and engage new registrants.","cohorts":["inactive_dem","inactive_una_2018plus","inactive_una_pre2018","new_reg_2022_25","inactive_rep"],"default_checked":["inactive_dem","inactive_una_2018plus"]},"D":{"label":"Outreach","hint":"Field targeting: active Democrats and unaffiliated voters.","cohorts":["outreach_dem","una_active"],"default_checked":["outreach_dem","una_active"]}};
+    const ELECTION_METRICS = [{"id":"reg_margin","label":"Registration lean (REP \u2212 DEM)"},{"id":"pct_dem_lead","label":"2024 president (Harris vs Trump margin)"},{"id":"all_una_cd01_pct","label":"All UNA \u2014 % of CD01"}];
     const DEFAULT_COUNTIES = ["Kent","Queen Anne's"];
+    const COMBINED_METRIC = "campaign_combined_cd01_pct";
 
     const map = L.map("map", { scrollWheelZoom: true });
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -155,44 +230,73 @@
     let GEO = null;
     let layer = null;
     let shareMax = {};
-    let pctScalesLive = null;
-    const PCT_FIELDS = ["una_pct","inactive_pct","inactive_dem_pct","inactive_una_pct","una_persuasion_pct"];
     const selectedCounties = new Set(
       DEFAULT_COUNTIES.filter(c => Object.prototype.hasOwnProperty.call(COUNTIES, c))
     );
+    const selectedCohortKeys = new Set();
 
-    function isShareCd01Metric(m) { return m.endsWith("_cd01_pct"); }
+    function isElectionContext() {
+      return document.getElementById("campaign-type").value === "election_context";
+    }
 
-    function computePctScalesFiltered() {
-      const scales = {};
-      PCT_FIELDS.forEach(field => {
-        const vals = [];
-        filteredFeatures().forEach(f => {
-          if (f.properties.has_cd01_voters) vals.push(Number(f.properties[field]) || 0);
-        });
-        if (vals.length < 5) return;
-        vals.sort((a, b) => a - b);
-        const lo = vals[Math.floor(vals.length * 0.10)];
-        const hi = vals[Math.min(vals.length - 1, Math.floor(vals.length * 0.90))];
-        const base = (META.pct_scales || {})[field] || {};
-        scales[field] = {
-          lo: Math.round(lo * 10) / 10,
-          hi: Math.round(Math.max(hi, lo + 0.1) * 10) / 10,
-          caption: base.caption || field
-        };
-      });
-      pctScalesLive = scales;
+    function activeCampaignTier() {
+      return document.getElementById("campaign-type").value;
+    }
+
+    function isShareCd01Metric(m) {
+      return m.endsWith("_cd01_pct") || m === COMBINED_METRIC;
+    }
+
+    function activeMetric() {
+      if (isElectionContext()) return document.getElementById("election-metric").value;
+      return COMBINED_METRIC;
+    }
+
+    function cohortKeysForTier(tier) {
+      const t = CAMPAIGN_TIERS[tier];
+      return t && t.cohorts ? t.cohorts : [];
+    }
+
+    function resetCohortSelectionForTier(tier) {
+      selectedCohortKeys.clear();
+      const defaults = (CAMPAIGN_TIERS[tier] || {}).default_checked || [];
+      defaults.forEach(k => selectedCohortKeys.add(k));
+    }
+
+    function combinedCohortCount(p) {
+      let n = 0;
+      selectedCohortKeys.forEach(k => { n += Number(p[k]) || 0; });
+      return n;
+    }
+
+    function combinedCd01Share(p) {
+      if (!p.has_cd01_voters || !META.cd01_total_voters) return 0;
+      return 100 * combinedCohortCount(p) / META.cd01_total_voters;
+    }
+
+    function metricValue(p, metric) {
+      if (metric === COMBINED_METRIC) return combinedCd01Share(p);
+      if (metric === "pct_dem_lead") return p.pct_dem_lead;
+      return p[metric];
     }
 
     function computeShareMax() {
       shareMax = {};
       if (!GEO) return;
-      filteredFeatures().forEach(f => {
-        const p = f.properties;
-        CD01_SHARE_FIELDS.forEach(field => {
-          const v = Number(p[field]) || 0;
-          if (v > (shareMax[field] || 0)) shareMax[field] = v;
+      const metric = activeMetric();
+      if (metric === COMBINED_METRIC) {
+        let max = 0;
+        filteredFeatures().forEach(f => {
+          const v = combinedCd01Share(f.properties);
+          if (v > max) max = v;
         });
+        shareMax[COMBINED_METRIC] = max;
+        return;
+      }
+      if (!isShareCd01Metric(metric)) return;
+      filteredFeatures().forEach(f => {
+        const v = Number(f.properties[metric]) || 0;
+        if (v > (shareMax[metric] || 0)) shareMax[metric] = v;
       });
     }
 
@@ -231,8 +335,12 @@
       });
 
       const pctCol = nCounties === Object.keys(COUNTIES).length ? "% CD01" : "% selected";
-      const cohortRows = COHORT_KEYS.map(k => {
+      const tableKeys = isElectionContext()
+        ? COHORT_KEYS
+        : cohortKeysForTier(activeCampaignTier()).filter(k => selectedCohortKeys.has(k));
+      const cohortRows = tableKeys.map(k => {
         const info = META.cohorts[k];
+        if (!info) return "";
         const count = cohortCounts[k];
         const pct = totalVoters > 0 ? (100 * count / totalVoters).toFixed(2) : "0.00";
         return `<tr><td>${info.label}</td><td>${count.toLocaleString()}</td><td>${pct}%</td></tr>`;
@@ -297,17 +405,6 @@
         const t = max > 0 ? Math.min(1, v / max) : 0;
         return interpolate("#f8fafc", "#7c3aed", t);
       }
-      if (metric.endsWith("_pct") && !isShareCd01Metric(metric)) {
-        const scale = (pctScalesLive || META.pct_scales || {})[metric];
-        if (scale) {
-          const t = scale.hi > scale.lo
-            ? Math.max(0, Math.min(1, (v - scale.lo) / (scale.hi - scale.lo)))
-            : 0;
-          return interpolate("#f8fafc", "#7c3aed", t);
-        }
-        const t = Math.min(1, v / 15);
-        return interpolate("#f8fafc", "#7c3aed", t);
-      }
       const t = Math.max(-1, Math.min(1, v));
       return t < 0 ? interpolate("#2563eb", "#e5e7eb", 1 + t) : interpolate("#e5e7eb", "#dc2626", t);
     }
@@ -319,7 +416,6 @@
       const pctPrec = p[key + "_pct"];
       let s = `${label}: <b>${n.toLocaleString()}</b>`;
       if (pctCd01 != null) s += ` · ${pctCd01}% of CD01`;
-      if (pctPrec != null && p.voters) s += ` · ${pctPrec}% of precinct`;
       return s;
     }
 
@@ -370,6 +466,7 @@
     function metricNumerator(metric, p) {
       if (!p.has_cd01_voters) return null;
       const v = p.voters || 0;
+      if (metric === COMBINED_METRIC) return combinedCohortCount(p);
       if (metric === "reg_margin") {
         const rep = p.rep_n != null ? p.rep_n : Math.round(v * (p.rep_pct || 0) / 100);
         const dem = p.dem_n != null ? p.dem_n : Math.round(v * (p.dem_pct || 0) / 100);
@@ -380,16 +477,6 @@
           return Math.round(p.votes_dem - p.votes_rep);
         return null;
       }
-      if (metric === "una_pct")
-        return p.una_n != null ? p.una_n : Math.round(v * (p.una_pct || 0) / 100);
-      if (metric === "inactive_pct")
-        return p.inactive_n != null ? p.inactive_n : Math.round(v * (p.inactive_pct || 0) / 100);
-      if (metric === "inactive_dem_pct" || metric === "inactive_dem_cd01_pct")
-        return p.inactive_dem || 0;
-      if (metric === "inactive_una_pct" || metric === "inactive_una_cd01_pct")
-        return p.inactive_una || 0;
-      if (metric === "una_persuasion_pct" || metric === "una_persuasion_cd01_pct")
-        return p.una_persuasion || 0;
       if (metric === "all_una_cd01_pct")
         return p.una_n != null ? p.una_n : Math.round(v * (p.una_pct || 0) / 100);
       return null;
@@ -424,20 +511,18 @@
         hi.textContent = max ? max.toFixed(3) + "% CD01" : "High";
         const scope = selectedCounties.size === Object.keys(COUNTIES).length
           ? "all CD01" : "selected counties";
-        cap.textContent = "Darker = larger share of " + scope + " registrants in this precinct";
-      } else if ((pctScalesLive || META.pct_scales || {})[metric]) {
-        bar.className = "legend-bar share";
-        const sc = (pctScalesLive || META.pct_scales)[metric];
-        lo.textContent = sc.lo + "%";
-        hi.textContent = sc.hi + "%";
-        const scope = selectedCounties.size === Object.keys(COUNTIES).length
-          ? "CD01" : "selected";
-        cap.textContent = sc.caption + " (color scale: 10th–90th percentile of " + scope + " precincts)";
+        if (metric === COMBINED_METRIC) {
+          const n = selectedCohortKeys.size;
+          cap.textContent = "Sum of " + n + " checked cohort" + (n === 1 ? "" : "s")
+            + " — share of " + scope + " registrants in this precinct";
+        } else {
+          cap.textContent = "Darker = larger share of " + scope + " registrants in this precinct";
+        }
       } else {
         bar.className = "legend-bar share";
         lo.textContent = "0%";
         hi.textContent = "High";
-        cap.textContent = "% of precinct registrants in this category";
+        cap.textContent = "Layer metric";
       }
       if (document.getElementById("show-precinct-counts").checked) {
         cap.textContent += " · Labels show raw count for this layer";
@@ -452,10 +537,9 @@
 
     function draw() {
       if (!GEO) return;
-      computePctScalesFiltered();
       computeShareMax();
       updateDataPanel();
-      const metric = document.getElementById("metric").value;
+      const metric = activeMetric();
       updateLegend(metric);
       if (layer) map.removeLayer(layer);
       const feats = filteredFeatures();
@@ -465,7 +549,7 @@
       layer = L.geoJSON({ type: "FeatureCollection", features: feats }, {
         style: f => {
           const p = f.properties;
-          const v = metric === "pct_dem_lead" ? p.pct_dem_lead : p[metric];
+          const v = metricValue(p, metric);
           return {
             fillColor: colorScale(metric, v, p.has_cd01_voters),
             weight: 1,
@@ -474,7 +558,11 @@
           };
         },
         onEachFeature: (f, l) => {
-          l.bindPopup(() => popup(f.properties), { minWidth: 260, maxWidth: 320 });
+          l.bindPopup(() => popup(f.properties), {
+            className: "precinct-popup",
+            minWidth: 280,
+            maxWidth: 300
+          });
           if (!document.getElementById("show-precinct-counts").checked) return;
           const n = metricNumerator(metric, f.properties);
           const text = formatMetricLabel(metric, n);
@@ -520,9 +608,65 @@
       };
     }
 
-    document.getElementById("metric").addEventListener("change", draw);
+    function updateCampaignUi() {
+      const election = isElectionContext();
+      document.getElementById("election-context-block").style.display = election ? "block" : "none";
+      document.getElementById("campaign-cohorts-block").style.display = election ? "none" : "block";
+      const hint = document.getElementById("tier-hint");
+      if (election) {
+        hint.textContent = "Registration and election backdrop layers.";
+      } else {
+        const t = CAMPAIGN_TIERS[activeCampaignTier()];
+        hint.textContent = t ? t.hint : "";
+      }
+      const showCohortTotals = !election;
+      document.getElementById("cohort-totals-heading").style.display = showCohortTotals ? "" : "none";
+      document.getElementById("cohort-table").style.display = showCohortTotals ? "" : "none";
+    }
+
+    function renderCohortChecks() {
+      const tier = activeCampaignTier();
+      const box = document.getElementById("cohort-checks");
+      const keys = cohortKeysForTier(tier);
+      box.innerHTML = keys.map(k => {
+        const info = META.cohorts[k];
+        const label = info ? info.label : k;
+        const on = selectedCohortKeys.has(k);
+        return `<label><input type="checkbox" ${on ? "checked" : ""} data-cohort="${k}"/> ${label}</label>`;
+      }).join("");
+      box.querySelectorAll("input").forEach(inp => {
+        inp.addEventListener("change", () => {
+          if (inp.checked) selectedCohortKeys.add(inp.dataset.cohort);
+          else selectedCohortKeys.delete(inp.dataset.cohort);
+          draw();
+        });
+      });
+    }
+
+    function onCampaignTypeChange() {
+      if (!isElectionContext()) resetCohortSelectionForTier(activeCampaignTier());
+      updateCampaignUi();
+      if (!isElectionContext()) renderCohortChecks();
+      draw();
+    }
+
+    document.getElementById("campaign-type").addEventListener("change", onCampaignTypeChange);
+    document.getElementById("election-metric").addEventListener("change", draw);
     document.getElementById("show-precinct-counts").addEventListener("change", draw);
+    document.getElementById("cohort-all").addEventListener("click", (e) => {
+      e.preventDefault();
+      cohortKeysForTier(activeCampaignTier()).forEach(k => selectedCohortKeys.add(k));
+      renderCohortChecks();
+      draw();
+    });
+    document.getElementById("cohort-none").addEventListener("click", (e) => {
+      e.preventDefault();
+      selectedCohortKeys.clear();
+      renderCohortChecks();
+      draw();
+    });
     initCountyChecks();
+    updateCampaignUi();
 
     function initPanelCollapse() {
       const panel = document.getElementById("control-panel");
@@ -596,12 +740,38 @@
     initPanelCollapse();
     initPanelDrag();
 
+    function initCohortInfoModal() {
+      const modal = document.getElementById("cohort-info-modal");
+      const openBtn = document.getElementById("cohort-info-btn");
+      const closeBtn = document.getElementById("cohort-info-close");
+      const backdrop = document.getElementById("cohort-info-backdrop");
+      function open() {
+        modal.hidden = false;
+        closeBtn.focus();
+      }
+      function close() {
+        modal.hidden = true;
+        openBtn.focus();
+      }
+      openBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        open();
+      });
+      closeBtn.addEventListener("click", close);
+      backdrop.addEventListener("click", close);
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && !modal.hidden) close();
+      });
+    }
+    initCohortInfoModal();
+
     fetch(GEO_URL)
       .then(r => { if (!r.ok) throw new Error(r.statusText); return r.json(); })
       .then(data => {
         GEO = data;
         computeShareMax();
-        document.getElementById("metric").disabled = false;
+        document.getElementById("campaign-type").disabled = false;
+        document.getElementById("election-metric").disabled = false;
         draw();
       })
       .catch(err => {
