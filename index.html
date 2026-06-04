@@ -74,8 +74,9 @@
     }
     .info-modal-dialog {
       position: relative; background: #fff; border-radius: 8px;
-      box-shadow: 0 8px 32px rgba(0,0,0,.2); max-width: 720px; width: 100%;
-      max-height: 85vh; display: flex; flex-direction: column;
+      box-shadow: 0 8px 32px rgba(0,0,0,.2);
+      width: min(920px, 96vw); max-width: 96vw; min-width: 300px;
+      max-height: 88vh; display: flex; flex-direction: column;
     }
     .info-modal-header {
       display: flex; align-items: center; justify-content: space-between;
@@ -88,19 +89,35 @@
     }
     #cohort-info-close:hover { color: #0f172a; }
     .info-modal-body {
-      padding: 12px 16px 16px; overflow-y: auto; font-size: 12px;
+      padding: 14px 18px 18px; overflow-y: auto; font-size: 13px;
+    }
+    .info-modal-note {
+      margin: 0 0 14px; color: #475569; font-size: 12px; line-height: 1.5;
     }
     .info-ref-table {
-      width: 100%; border-collapse: collapse; font-size: 12px; line-height: 1.45;
+      width: 100%; table-layout: fixed; border-collapse: collapse;
+      font-size: 12px; line-height: 1.5;
     }
-    .info-ref-table th, .info-ref-table td {
-      text-align: left; vertical-align: top; padding: 8px 10px;
-      border-bottom: 1px solid #e5e7eb;
+    .info-ref-table .col-campaign { width: 18%; }
+    .info-ref-table .col-cohort { width: 26%; }
+    .info-ref-table .col-included { width: 56%; }
+    .info-ref-table thead th {
+      position: sticky; top: 0; z-index: 1;
+      background: #f1f5f9; font-weight: 600; text-align: left;
+      padding: 10px 12px; border: 1px solid #e2e8f0;
+      box-shadow: 0 1px 0 #e2e8f0;
     }
-    .info-ref-table th { background: #f8fafc; font-weight: 600; }
-    .info-ref-table td:first-child { white-space: nowrap; width: 1%; }
-    .info-ref-table td:nth-child(2) { white-space: nowrap; width: 1%; }
-    .info-modal-note { margin: 0 0 10px; color: #555; font-size: 11px; }
+    .info-ref-table tbody td {
+      vertical-align: top; text-align: left;
+      padding: 10px 12px; border: 1px solid #e2e8f0;
+    }
+    .info-ref-table tbody tr:nth-child(even) td { background: #fafafa; }
+    .info-ref-table td:first-child,
+    .info-ref-table td:nth-child(2) { white-space: nowrap; }
+    .info-ref-table td:nth-child(3) {
+      white-space: normal; overflow-wrap: break-word; word-break: normal;
+      line-height: 1.55;
+    }
     /* Leaflet uses width:auto on .leaflet-popup-content — width:100% children shrink to min-content */
     .leaflet-popup.precinct-popup .leaflet-popup-content-wrapper {
       min-width: 280px;
@@ -202,22 +219,22 @@
     <div class="info-modal-backdrop" id="cohort-info-backdrop"></div>
     <div class="info-modal-dialog">
       <div class="info-modal-header">
-        <h2 id="cohort-info-title">Campaign tiers &amp; cohorts</h2>
+        <h2 id="cohort-info-title">Campaigns &amp; cohorts</h2>
         <button type="button" id="cohort-info-close" title="Close">&times;</button>
       </div>
       <div class="info-modal-body">
         <p class="info-modal-note">District-wide definitions (CD01). Use county checkboxes on the map to limit geography. Campaign layers sum checked cohorts as % of CD01.</p>
-        <table class="info-ref-table"><thead><tr><th>Campaign tier</th><th>Cohort</th><th>Who&rsquo;s included</th></tr></thead><tbody><tr><td>Turnout</td><td>Active DEM (A01)</td><td>CD01 Democrats with active status (not inactive on the rolls).</td></tr><tr><td>Vote / Persuasion</td><td>Active UNA (2018+) (B01)</td><td>Active unaffiliated voters in CD01 whose first MD registration year is 2018 or later.</td></tr><tr><td>Vote / Persuasion</td><td>Active UNA (pre-2018) (B02)</td><td>Active unaffiliated voters registered before 2018 (or missing reg date).</td></tr><tr><td>Registration</td><td>Inactive DEM (C01)</td><td>Democrats marked inactive (I) — need re-registration or status fix to vote.</td></tr><tr><td>Registration</td><td>Inactive UNA (2018+) (C02)</td><td>Inactive unaffiliated voters with registration year 2018 or later.</td></tr><tr><td>Registration</td><td>Inactive UNA (pre-2018) (C02b)</td><td>Inactive unaffiliated voters registered before 2018 (or missing reg date).</td></tr><tr><td>Registration</td><td>New registrants 2022–25 (DEM+UNA, active) (C03)</td><td>Active Democrats and unaffiliated voters who first registered in 2022–2025.</td></tr><tr><td>Registration</td><td>Inactive REP (C04)</td><td>Republicans marked inactive — reactivation or list hygiene (not Dem targets).</td></tr><tr><td>Outreach</td><td>Active DEM (D01)</td><td>Same voters as A01: active Democrats in CD01 (field universe for door-to-door).</td></tr><tr><td>Outreach</td><td>Active UNA (D02)</td><td>All active unaffiliated voters in CD01 (any registration year; includes B01 subset).</td></tr><tr><td>Election context</td><td>—</td><td>Backdrop layers (not summed cohorts). Use county filter to scope geography.</td></tr><tr><td>Election context</td><td>Registration lean (REP − DEM)</td><td>All CD01 registrants in precinct; color = (REP count − DEM count) ÷ total.</td></tr><tr><td>Election context</td><td>2024 president (Harris vs Trump margin)</td><td>Precincts with NYT 2024 two-way vote; margin for Harris vs Trump.</td></tr><tr><td>Election context</td><td>All UNA — % of CD01</td><td>Each precinct’s share of all CD01 unaffiliated registrants (any status).</td></tr></tbody></table>
+        <table class="info-ref-table"><colgroup><col class="col-campaign" /><col class="col-cohort" /><col class="col-included" /></colgroup><thead><tr><th>Campaign</th><th>Cohort</th><th>Who&rsquo;s included</th></tr></thead><tbody><tr><td>Turnout</td><td>Active DEM</td><td>CD01 Democrats with active status (not inactive on the rolls).</td></tr><tr><td>Vote / Persuasion</td><td>Active UNA (2018+)</td><td>Active unaffiliated voters whose first MD registration year is 2018 or later.</td></tr><tr><td>Vote / Persuasion</td><td>Active UNA (pre-2018)</td><td>Active unaffiliated voters registered before 2018 (or missing reg date).</td></tr><tr><td>Registration</td><td>Inactive DEM</td><td>Democrats marked inactive — need re-registration or status fix to vote.</td></tr><tr><td>Registration</td><td>Inactive UNA (2018+)</td><td>Inactive unaffiliated voters with registration year 2018 or later.</td></tr><tr><td>Registration</td><td>Inactive UNA (pre-2018)</td><td>Inactive unaffiliated voters registered before 2018 (or missing reg date).</td></tr><tr><td>Registration</td><td>Inactive REP</td><td>Republicans marked inactive — list hygiene (not Dem persuasion targets).</td></tr><tr><td>Outreach</td><td>Active DEM</td><td>CD01 Democrats with active status (not inactive on the rolls).</td></tr><tr><td>Outreach</td><td>Active UNA (2018+)</td><td>Active unaffiliated voters whose first MD registration year is 2018 or later.</td></tr><tr><td>Outreach</td><td>Active UNA (pre-2018)</td><td>Active unaffiliated voters registered before 2018 (or missing reg date).</td></tr><tr><td>Election context</td><td>—</td><td>Backdrop layers. Use county filter to scope geography.</td></tr><tr><td>Election context</td><td>Registration lean (REP − DEM)</td><td>All CD01 registrants in precinct; color = (REP count − DEM count) ÷ total.</td></tr><tr><td>Election context</td><td>2024 president (Harris vs Trump margin)</td><td>Precincts with NYT 2024 two-way vote; margin for Harris vs Trump.</td></tr><tr><td>Election context</td><td>All UNA — % of CD01</td><td>Each precinct’s share of all CD01 unaffiliated registrants (any status).</td></tr></tbody></table>
       </div>
     </div>
   </div>
   <script>
     const GEO_URL = "cd01_precincts.geojson";
     const COUNTIES = {"Harford":{"voters":209632,"rep_pct":41.1,"dem_pct":32.3,"una_pct":24.6,"inactive_pct":5.0,"inactive_dem":3366,"inactive_una":3237,"reg_margin":0.088},"Cecil":{"voters":79369,"rep_pct":47.5,"dem_pct":25.5,"una_pct":24.9,"inactive_pct":6.3,"inactive_dem":1566,"inactive_una":1546,"reg_margin":0.22},"Wicomico":{"voters":72356,"rep_pct":35.8,"dem_pct":38.0,"una_pct":24.1,"inactive_pct":6.5,"inactive_dem":1862,"inactive_una":1271,"reg_margin":-0.022},"Baltimore County":{"voters":46836,"rep_pct":42.3,"dem_pct":33.3,"una_pct":22.6,"inactive_pct":3.6,"inactive_dem":570,"inactive_una":419,"reg_margin":0.089},"Worcester":{"voters":46818,"rep_pct":45.8,"dem_pct":30.0,"una_pct":22.3,"inactive_pct":5.4,"inactive_dem":687,"inactive_una":692,"reg_margin":0.158},"Queen Anne's":{"voters":43997,"rep_pct":49.2,"dem_pct":26.5,"una_pct":22.7,"inactive_pct":4.0,"inactive_dem":453,"inactive_una":488,"reg_margin":0.227},"Talbot":{"voters":30755,"rep_pct":40.0,"dem_pct":36.0,"una_pct":22.4,"inactive_pct":6.0,"inactive_dem":680,"inactive_una":537,"reg_margin":0.04},"Dorchester":{"voters":25243,"rep_pct":39.9,"dem_pct":38.6,"una_pct":19.6,"inactive_pct":3.6,"inactive_dem":343,"inactive_una":262,"reg_margin":0.014},"Caroline":{"voters":24081,"rep_pct":48.9,"dem_pct":25.8,"una_pct":23.4,"inactive_pct":4.5,"inactive_dem":324,"inactive_una":337,"reg_margin":0.232},"Somerset":{"voters":15253,"rep_pct":42.8,"dem_pct":36.0,"una_pct":19.2,"inactive_pct":3.3,"inactive_dem":185,"inactive_una":134,"reg_margin":0.069},"Kent":{"voters":15073,"rep_pct":38.5,"dem_pct":38.7,"una_pct":21.1,"inactive_pct":4.5,"inactive_dem":259,"inactive_una":184,"reg_margin":-0.003}};
-    const META = {"boundary_source":"Maryland iMap Election Boundaries 2026","precinct_features":549,"precinct_with_cd01_registration":307,"voter_precinct_groups":309,"precinct_with_2024_election":421,"cd01_total_voters":609413,"cohorts":{"dem_active":{"label":"Active DEM (A01)","tier":"A","code":"A01","count":184853,"pct_cd01":30.33},"una_active_2018plus":{"label":"Active UNA (2018+) (B01)","tier":"B","code":"B01","count":53737,"pct_cd01":8.82},"una_active_pre2018":{"label":"Active UNA (pre-2018) (B02)","tier":"B","code":"B02","count":80465,"pct_cd01":13.2},"inactive_dem":{"label":"Inactive DEM (C01)","tier":"C","code":"C01","count":10295,"pct_cd01":1.69},"inactive_una_2018plus":{"label":"Inactive UNA (2018+) (C02)","tier":"C","code":"C02","count":4426,"pct_cd01":0.73},"inactive_una_pre2018":{"label":"Inactive UNA (pre-2018) (C02b)","tier":"C","code":"C02b","count":4682,"pct_cd01":0.77},"new_reg_2022_25":{"label":"New registrants 2022\u201325 (DEM+UNA, active) (C03)","tier":"C","code":"C03","count":53197,"pct_cd01":8.73},"inactive_rep":{"label":"Inactive REP (C04)","tier":"C","code":"C04","count":10976,"pct_cd01":1.8},"outreach_dem":{"label":"Active DEM (D01)","tier":"D","code":"D01","count":184853,"pct_cd01":30.33},"una_active":{"label":"Active UNA (D02)","tier":"D","code":"D02","count":134201,"pct_cd01":22.02}},"campaign_tiers":{"A":{"label":"Turnout","hint":"Mobilize active Democrats across selected counties.","cohorts":["dem_active"],"default_checked":["dem_active"]},"B":{"label":"Vote / Persuasion","hint":"Persuade and turn out active UNA (registered 2018+).","cohorts":["una_active_2018plus","una_active_pre2018"],"default_checked":["una_active_2018plus"]},"C":{"label":"Registration","hint":"Re-register inactive voters and engage new registrants.","cohorts":["inactive_dem","inactive_una_2018plus","inactive_una_pre2018","new_reg_2022_25","inactive_rep"],"default_checked":["inactive_dem","inactive_una_2018plus"]},"D":{"label":"Outreach","hint":"Field targeting: active Democrats and unaffiliated voters.","cohorts":["outreach_dem","una_active"],"default_checked":["outreach_dem","una_active"]}}};
-    const COHORT_KEYS = ["dem_active","una_active_2018plus","una_active_pre2018","inactive_dem","inactive_una_2018plus","inactive_una_pre2018","new_reg_2022_25","inactive_rep","outreach_dem","una_active"];
-    const CD01_SHARE_FIELDS = ["dem_active_cd01_pct","una_active_2018plus_cd01_pct","una_active_pre2018_cd01_pct","inactive_dem_cd01_pct","inactive_una_2018plus_cd01_pct","inactive_una_pre2018_cd01_pct","new_reg_2022_25_cd01_pct","inactive_rep_cd01_pct","outreach_dem_cd01_pct","una_active_cd01_pct","all_una_cd01_pct"];
-    const CAMPAIGN_TIERS = {"A":{"label":"Turnout","hint":"Mobilize active Democrats across selected counties.","cohorts":["dem_active"],"default_checked":["dem_active"]},"B":{"label":"Vote / Persuasion","hint":"Persuade and turn out active UNA (registered 2018+).","cohorts":["una_active_2018plus","una_active_pre2018"],"default_checked":["una_active_2018plus"]},"C":{"label":"Registration","hint":"Re-register inactive voters and engage new registrants.","cohorts":["inactive_dem","inactive_una_2018plus","inactive_una_pre2018","new_reg_2022_25","inactive_rep"],"default_checked":["inactive_dem","inactive_una_2018plus"]},"D":{"label":"Outreach","hint":"Field targeting: active Democrats and unaffiliated voters.","cohorts":["outreach_dem","una_active"],"default_checked":["outreach_dem","una_active"]}};
+    const META = {"boundary_source":"Maryland iMap Election Boundaries 2026","precinct_features":549,"precinct_with_cd01_registration":307,"voter_precinct_groups":309,"precinct_with_2024_election":421,"cd01_total_voters":609413,"cohorts":{"dem_active":{"label":"Active DEM","campaigns":["turnout","outreach"],"atomic":true,"count":184853,"pct_cd01":30.33},"una_active_2018plus":{"label":"Active UNA (2018+)","campaigns":["persuasion","outreach"],"atomic":true,"count":53737,"pct_cd01":8.82},"una_active_pre2018":{"label":"Active UNA (pre-2018)","campaigns":["persuasion","outreach"],"atomic":true,"count":80465,"pct_cd01":13.2},"inactive_dem":{"label":"Inactive DEM","campaigns":["registration"],"atomic":true,"count":10295,"pct_cd01":1.69},"inactive_una_2018plus":{"label":"Inactive UNA (2018+)","campaigns":["registration"],"atomic":true,"count":4426,"pct_cd01":0.73},"inactive_una_pre2018":{"label":"Inactive UNA (pre-2018)","campaigns":["registration"],"atomic":true,"count":4682,"pct_cd01":0.77},"inactive_rep":{"label":"Inactive REP","campaigns":["registration"],"atomic":true,"count":10976,"pct_cd01":1.8}},"campaign_tiers":{"A":{"label":"Turnout","hint":"Mobilize active Democrats across selected counties.","cohorts":["dem_active"],"default_checked":["dem_active"]},"B":{"label":"Vote / Persuasion","hint":"Persuade and turn out active UNA (2018+ and pre-2018 are separate cohorts).","cohorts":["una_active_2018plus","una_active_pre2018"],"default_checked":["una_active_2018plus","una_active_pre2018"]},"C":{"label":"Registration","hint":"Re-register inactive voters (DEM, UNA, and REP on the rolls).","cohorts":["inactive_dem","inactive_una_2018plus","inactive_una_pre2018","inactive_rep"],"default_checked":["inactive_dem","inactive_una_2018plus","inactive_una_pre2018","inactive_rep"]},"D":{"label":"Outreach","hint":"Active DEM + active UNA (2018+ and pre-2018) for field contact.","cohorts":["dem_active","una_active_2018plus","una_active_pre2018"],"default_checked":["dem_active","una_active_2018plus","una_active_pre2018"]},"election_context":{"label":"Election context","hint":"Registration and election backdrop layers (not summed cohorts).","cohorts":[],"default_checked":[]}}};
+    const COHORT_KEYS = ["dem_active","una_active_2018plus","una_active_pre2018","inactive_dem","inactive_una_2018plus","inactive_una_pre2018","inactive_rep"];
+    const CD01_SHARE_FIELDS = ["dem_active_cd01_pct","una_active_2018plus_cd01_pct","una_active_pre2018_cd01_pct","inactive_dem_cd01_pct","inactive_una_2018plus_cd01_pct","inactive_una_pre2018_cd01_pct","inactive_rep_cd01_pct","all_una_cd01_pct"];
+    const CAMPAIGN_TIERS = {"A":{"label":"Turnout","hint":"Mobilize active Democrats across selected counties.","cohorts":["dem_active"],"default_checked":["dem_active"]},"B":{"label":"Vote / Persuasion","hint":"Persuade and turn out active UNA (2018+ and pre-2018 are separate cohorts).","cohorts":["una_active_2018plus","una_active_pre2018"],"default_checked":["una_active_2018plus","una_active_pre2018"]},"C":{"label":"Registration","hint":"Re-register inactive voters (DEM, UNA, and REP on the rolls).","cohorts":["inactive_dem","inactive_una_2018plus","inactive_una_pre2018","inactive_rep"],"default_checked":["inactive_dem","inactive_una_2018plus","inactive_una_pre2018","inactive_rep"]},"D":{"label":"Outreach","hint":"Active DEM + active UNA (2018+ and pre-2018) for field contact.","cohorts":["dem_active","una_active_2018plus","una_active_pre2018"],"default_checked":["dem_active","una_active_2018plus","una_active_pre2018"]},"election_context":{"label":"Election context","hint":"Registration and election backdrop layers (not summed cohorts).","cohorts":[],"default_checked":[]}};
     const ELECTION_METRICS = [{"id":"reg_margin","label":"Registration lean (REP \u2212 DEM)"},{"id":"pct_dem_lead","label":"2024 president (Harris vs Trump margin)"},{"id":"all_una_cd01_pct","label":"All UNA \u2014 % of CD01"}];
     const DEFAULT_COUNTIES = ["Kent","Queen Anne's"];
     const COMBINED_METRIC = "campaign_combined_cd01_pct";
@@ -259,8 +276,7 @@
 
     function resetCohortSelectionForTier(tier) {
       selectedCohortKeys.clear();
-      const defaults = (CAMPAIGN_TIERS[tier] || {}).default_checked || [];
-      defaults.forEach(k => selectedCohortKeys.add(k));
+      cohortKeysForTier(tier).forEach(k => selectedCohortKeys.add(k));
     }
 
     function combinedCohortCount(p) {
