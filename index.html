@@ -10,7 +10,7 @@
     body { margin: 0; font-family: system-ui, sans-serif; }
     #map { height: 100vh; width: 100%; }
     .panel {
-      position: fixed; z-index: 1000; top: 12px; right: 12px;
+      position: fixed; z-index: 1500; top: 12px; right: 12px;
       background: #fff; padding: 0 14px 12px; max-width: 340px;
       border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,.18);
       font-size: 13px; line-height: 1.4; max-height: 92vh; overflow-y: auto;
@@ -30,6 +30,12 @@
       color: #334155; padding: 0;
     }
     #panel-toggle:hover { background: #f1f5f9; }
+    #panel-reset {
+      flex-shrink: 0; width: 28px; height: 28px; border: 1px solid #cbd5e1;
+      border-radius: 4px; background: #fff; cursor: pointer; font-size: 14px; line-height: 1;
+      color: #334155; padding: 0;
+    }
+    #panel-reset:hover { background: #f1f5f9; }
     .panel.collapsed .panel-body { display: none; }
     .panel.collapsed .panel-header { border-bottom: none; border-radius: 8px; }
     .panel-body { padding-top: 8px; }
@@ -51,6 +57,19 @@
     .county-checks label, .cohort-checks label { font-weight: normal; display: flex; gap: 6px; margin: 2px 0; font-size: 12px; }
     .county-actions, .cohort-actions { font-size: 11px; margin-top: 4px; }
     .county-actions a, .cohort-actions a { color: #1d4ed8; cursor: pointer; margin-right: 10px; }
+    .campaign-export-actions {
+      display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px;
+    }
+    .campaign-export-actions button {
+      font-size: 12px; padding: 6px 10px; border: 1px solid #cbd5e1;
+      border-radius: 6px; background: #fff; color: #1d4ed8; cursor: pointer;
+    }
+    .campaign-export-actions button:hover { background: #eff6ff; }
+    #campaign-criteria-status { margin-top: 6px; color: #166534; }
+    #campaign-criteria-hint {
+      margin-top: 6px; font-size: 10px; line-height: 1.45;
+      white-space: pre-wrap; color: #475569;
+    }
     #tier-hint { margin-top: 4px; }
     #campaign-cohorts-block { margin-top: 4px; }
     .label-row {
@@ -93,6 +112,16 @@
     }
     .info-modal-note {
       margin: 0 0 14px; color: #475569; font-size: 12px; line-height: 1.5;
+    }
+    .info-modal-section-title {
+      margin: 20px 0 8px; font-size: 14px; font-weight: 600; color: #0f172a;
+    }
+    .info-modal-section-title:first-child { margin-top: 0; }
+    .info-sources-table .col-source-layer { width: 22%; }
+    .info-sources-table .col-source-name { width: 28%; }
+    .info-sources-table .col-source-notes { width: 50%; }
+    .donor-filter-heading {
+      margin: 10px 0 4px; font-size: 12px; font-weight: 600; color: #334155;
     }
     .info-ref-table {
       width: 100%; table-layout: fixed; border-collapse: collapse;
@@ -160,6 +189,7 @@
   <div class="panel" id="control-panel">
     <div class="panel-header panel-drag-handle" title="Drag to move">
       <h1>CD01 precinct map</h1>
+      <button type="button" id="panel-reset" title="Reset panel position (top-right)">&#8635;</button>
       <button type="button" id="panel-toggle" aria-expanded="true" title="Collapse panel">−</button>
     </div>
     <div class="panel-body" id="panel-body">
@@ -167,13 +197,12 @@
     <p id="load-error" style="display:none"></p>
     <div class="label-row">
       <label for="campaign-type">Campaign Type</label>
-      <button type="button" id="cohort-info-btn" title="Campaign tiers and cohort definitions" aria-haspopup="dialog">i</button>
+      <button type="button" id="cohort-info-btn" title="Data sources, campaigns, and cohort definitions" aria-haspopup="dialog">i</button>
     </div>
     <select id="campaign-type" disabled>
       <option value="election_context" selected>Election context</option>
       <option value="A">Turnout</option>
       <option value="B">Vote / Persuasion</option>
-      <option value="C">Registration</option>
       <option value="D">Outreach</option>
     </select>
     <p id="tier-hint" class="footnote"></p>
@@ -182,8 +211,35 @@
       <select id="election-metric" disabled>
         <option value="reg_margin">Registration lean (REP − DEM)</option>
         <option value="pct_dem_lead">2024 president (Harris vs Trump margin)</option>
-        <option value="all_una_cd01_pct">All UNA — % of CD01</option>
+        <option value="donors">Donations ($ raised)</option>
+        <option value="una_lean">UNA lean (tiered)</option>
       </select>
+      <div id="election-donor-cohorts-block" style="display:none;margin-top:8px">
+        <h2 class="section" style="margin-top:4px">Recipient classes</h2>
+        <p class="footnote" style="margin-top:0">Map shows $ for checked registration parties and recipient classes (% of filtered CD01 $).</p>
+        <h3 class="donor-filter-heading">Voter registration</h3>
+        <div class="cohort-actions">
+          <a id="donor-reg-all">All</a>
+          <a id="donor-reg-none">None</a>
+        </div>
+        <div class="cohort-checks" id="donor-reg-checks"></div>
+        <h3 class="donor-filter-heading">Recipient classes</h3>
+        <div class="cohort-actions">
+          <a id="donor-class-all">All</a>
+          <a id="donor-class-none">None</a>
+        </div>
+        <div class="cohort-checks" id="donor-class-checks"></div>
+      </div>
+      <div id="election-una-lean-block" style="display:none;margin-top:8px">
+        <h2 class="section" style="margin-top:4px">UNA lean tiers</h2>
+        <p class="footnote" style="margin-top:0">Active UNA only. Map shows count for checked tiers (% of mapped CD01 UNA).</p>
+        <div class="cohort-actions">
+          <a id="una-lean-all">All</a>
+          <a id="una-lean-none">None</a>
+          <a id="una-lean-persuasion">A+B</a>
+        </div>
+        <div class="cohort-checks" id="una-lean-checks"></div>
+      </div>
     </div>
     <div id="campaign-cohorts-block" style="display:none">
       <h2 class="section" style="margin-top:10px">Cohorts in this campaign</h2>
@@ -208,8 +264,27 @@
       <a id="county-none">None</a>
     </div>
     <div class="county-checks" id="county-checks"></div>
+    <h2 class="section">Campaign workflow</h2>
+    <p class="footnote" style="margin-top:0">Export the current map filters as JSON for local <code>campaign_manager.py</code>. No voter IDs or PII are included.</p>
+    <div class="campaign-export-actions">
+      <button type="button" id="campaign-criteria-copy">Copy criteria JSON</button>
+      <button type="button" id="campaign-criteria-download">Download criteria JSON</button>
+      <button type="button" id="campaign-criteria-load-btn">Load criteria JSON</button>
+      <input type="file" id="campaign-criteria-load" accept=".json,application/json" hidden />
+    </div>
+    <p id="campaign-criteria-status" style="display:none"></p>
+    <pre id="campaign-criteria-hint" style="display:none"></pre>
     <h2 class="section" id="cohort-totals-heading">Cohort totals <span id="cohort-scope" style="font-weight:normal;color:#555"></span></h2>
+    <h2 class="section" id="donor-totals-heading" style="display:none">Donations by class <span id="donor-scope" style="font-weight:normal;color:#555"></span></h2>
     <table class="county-table" id="cohort-table"></table>
+    <table class="county-table" id="donor-party-table" style="display:none"></table>
+    <h2 class="section" id="donor-county-heading" style="display:none">Donations by county</h2>
+    <table class="county-table" id="donor-county-table" style="display:none"></table>
+    <h2 class="section" id="una-lean-totals-heading" style="display:none">UNA lean by tier <span id="una-lean-scope" style="font-weight:normal;color:#555"></span></h2>
+    <table class="county-table" id="una-lean-tier-table" style="display:none"></table>
+    <h2 class="section" id="una-lean-county-heading" style="display:none">UNA lean by county</h2>
+    <table class="county-table" id="una-lean-county-table" style="display:none"></table>
+    <h2 class="section" id="county-table-heading">Active voters by county</h2>
     <table class="county-table" id="county-table"></table>
     <p class="footnote" id="meta"></p>
     <p class="footnote">Aggregates only · Not official SBE · MD iMap boundaries</p>
@@ -219,25 +294,48 @@
     <div class="info-modal-backdrop" id="cohort-info-backdrop"></div>
     <div class="info-modal-dialog">
       <div class="info-modal-header">
-        <h2 id="cohort-info-title">Campaigns &amp; cohorts</h2>
+        <h2 id="cohort-info-title">Map reference</h2>
         <button type="button" id="cohort-info-close" title="Close">&times;</button>
       </div>
       <div class="info-modal-body">
-        <p class="info-modal-note">District-wide definitions (CD01). Use county checkboxes on the map to limit geography. Campaign layers sum checked cohorts as % of CD01.</p>
-        <table class="info-ref-table"><colgroup><col class="col-campaign" /><col class="col-cohort" /><col class="col-included" /></colgroup><thead><tr><th>Campaign</th><th>Cohort</th><th>Who&rsquo;s included</th></tr></thead><tbody><tr><td>Turnout</td><td>Active DEM</td><td>CD01 Democrats with active status (not inactive on the rolls).</td></tr><tr><td>Vote / Persuasion</td><td>Active UNA (2018+)</td><td>Active unaffiliated voters whose first MD registration year is 2018 or later.</td></tr><tr><td>Vote / Persuasion</td><td>Active UNA (pre-2018)</td><td>Active unaffiliated voters registered before 2018 (or missing reg date).</td></tr><tr><td>Registration</td><td>Inactive DEM</td><td>Democrats marked inactive — need re-registration or status fix to vote.</td></tr><tr><td>Registration</td><td>Inactive UNA (2018+)</td><td>Inactive unaffiliated voters with registration year 2018 or later.</td></tr><tr><td>Registration</td><td>Inactive UNA (pre-2018)</td><td>Inactive unaffiliated voters registered before 2018 (or missing reg date).</td></tr><tr><td>Registration</td><td>Inactive REP</td><td>Republicans marked inactive — list hygiene (not Dem persuasion targets).</td></tr><tr><td>Outreach</td><td>Active DEM</td><td>CD01 Democrats with active status (not inactive on the rolls).</td></tr><tr><td>Outreach</td><td>Active UNA (2018+)</td><td>Active unaffiliated voters whose first MD registration year is 2018 or later.</td></tr><tr><td>Outreach</td><td>Active UNA (pre-2018)</td><td>Active unaffiliated voters registered before 2018 (or missing reg date).</td></tr><tr><td>Election context</td><td>—</td><td>Backdrop layers. Use county filter to scope geography.</td></tr><tr><td>Election context</td><td>Registration lean (REP − DEM)</td><td>All CD01 registrants in precinct; color = (REP count − DEM count) ÷ total.</td></tr><tr><td>Election context</td><td>2024 president (Harris vs Trump margin)</td><td>Precincts with NYT 2024 two-way vote; margin for Harris vs Trump.</td></tr><tr><td>Election context</td><td>All UNA — % of CD01</td><td>Each precinct’s share of all CD01 unaffiliated registrants (any status).</td></tr></tbody></table>
+        <h3 class="info-modal-section-title">Primary data sources</h3><table class="info-ref-table info-sources-table"><colgroup><col class="col-source-layer" /><col class="col-source-name" /><col class="col-source-notes" /></colgroup><thead><tr><th>Map layer</th><th>Source</th><th>Notes</th></tr></thead><tbody><tr><td>Registration &amp; cohorts</td><td>Maryland SBE voter file</td><td>Active CD01 registrants — party, county, precinct, status.</td></tr><tr><td>Precinct boundaries</td><td>Maryland iMap Election Boundaries 2026</td><td>Official precinct polygons for CD01 counties.</td></tr><tr><td>2024 president margin</td><td>NYT election map + MD SBE precinct results</td><td>Harris vs Trump two-way margin by precinct.</td></tr><tr><td>Donations ($ raised)</td><td>Maryland CRIS campaign finance</td><td>Matched CD01 contributors; gifts by recipient class.</td></tr><tr><td>UNA lean (tiered)</td><td>SBE 2024 presidential precinct data + CRIS</td><td>Estimated lean for active UNA only (Tier A: CRIS; B/C/D: precinct prior).</td></tr></tbody></table><p class="info-modal-note" style="margin-top:12px">Aggregates only · Not official SBE reporting · Precinct priors are ecological estimates, not individual vote history.</p>
+        <p class="info-modal-note">District-wide cohort definitions (CD01 active registrants only). Use county checkboxes to limit geography. Campaign layers sum checked cohorts as % of active CD01.</p>
+        <h3 class="info-modal-section-title">Campaigns &amp; cohorts</h3><table class="info-ref-table"><colgroup><col class="col-campaign" /><col class="col-cohort" /><col class="col-included" /></colgroup><thead><tr><th>Campaign</th><th>Cohort</th><th>Who&rsquo;s included</th></tr></thead><tbody><tr><td>Turnout</td><td>DEM</td><td>CD01 Democrats on the active voter rolls.</td></tr><tr><td>Vote / Persuasion</td><td>UNA (2018+)</td><td>Unaffiliated active voters whose first MD registration year is 2018 or later.</td></tr><tr><td>Vote / Persuasion</td><td>UNA (pre-2018)</td><td>Unaffiliated active voters registered before 2018 (or missing reg date).</td></tr><tr><td>Outreach</td><td>DEM</td><td>CD01 Democrats on the active voter rolls.</td></tr><tr><td>Outreach</td><td>UNA (2018+)</td><td>Unaffiliated active voters whose first MD registration year is 2018 or later.</td></tr><tr><td>Outreach</td><td>UNA (pre-2018)</td><td>Unaffiliated active voters registered before 2018 (or missing reg date).</td></tr><tr><td>Election context</td><td>—</td><td>Backdrop layers (active registrants). Use county filter to scope geography.</td></tr><tr><td>Election context</td><td>Registration lean (REP − DEM)</td><td>Active CD01 registrants in precinct; color = (REP count − DEM count) ÷ total.</td></tr><tr><td>Election context</td><td>2024 president (Harris vs Trump margin)</td><td>Precincts with NYT 2024 two-way vote; margin for Harris vs Trump.</td></tr><tr><td>Election context</td><td>Donations ($ raised)</td><td>Maryland CRIS gift dollars from active CD01 donors, by recipient committee class (DEM, REP, PACs, etc.).</td></tr><tr><td>Election context</td><td>UNA lean (tiered)</td><td>Active CD01 UNA only: Tier A (CRIS→DEM) plus precinct-based B/C/D estimates from 2024 president margin.</td></tr><tr><td>Election context · Donations</td><td>DEM</td><td>CRIS gifts to Democratic candidates, caucuses, and party central committees.</td></tr><tr><td>Election context · Donations</td><td>REP</td><td>CRIS gifts to Republican candidates, caucuses, and party central committees.</td></tr><tr><td>Election context · Donations</td><td>Association PAC</td><td>Trade, business, agriculture, real estate, finance, and professional PACs.</td></tr><tr><td>Election context · Donations</td><td>Labor PAC</td><td>Union, educator, firefighter, and public-safety PACs.</td></tr><tr><td>Election context · Donations</td><td>Issue PAC</td><td>Environmental, progressive, cannabis, and other issue-oriented PACs.</td></tr><tr><td>Election context · Donations</td><td>Third_Party</td><td>Libertarian, Green, and Working Class party central committees.</td></tr><tr><td>Election context · Donations</td><td>Ballot Issue</td><td>Referenda and ballot-question committees.</td></tr><tr><td>Election context · Donations</td><td>Slate</td><td>Board-of-education and multi-candidate slates.</td></tr><tr><td>Election context · Donations</td><td>Public Financing</td><td>State public campaign financing accounts.</td></tr><tr><td>Election context · Donations</td><td>Candidate (pending)</td><td>Local candidates whose party affiliation is not yet verified.</td></tr><tr><td>Election context · UNA lean</td><td>Tier A (CRIS→DEM)</td><td>Active UNA with high/medium DEM CRIS gifts and no REP gifts.</td></tr><tr><td>Election context · UNA lean</td><td>Tier B (precinct Dem)</td><td>Active UNA inheriting 2024 precinct Dem lean (score &lt; −0.1); excludes Tier A.</td></tr><tr><td>Election context · UNA lean</td><td>Tier C (swing)</td><td>Active UNA in swing precincts (score between −0.1 and +0.1).</td></tr><tr><td>Election context · UNA lean</td><td>Tier D (precinct Rep)</td><td>Active UNA inheriting 2024 precinct Rep lean (score &gt; +0.1).</td></tr></tbody></table>
       </div>
     </div>
   </div>
   <script>
     const GEO_URL = "cd01_precincts.geojson";
-    const COUNTIES = {"Harford":{"voters":209632,"rep_pct":41.1,"dem_pct":32.3,"una_pct":24.6,"inactive_pct":5.0,"inactive_dem":3366,"inactive_una":3237,"reg_margin":0.088},"Cecil":{"voters":79369,"rep_pct":47.5,"dem_pct":25.5,"una_pct":24.9,"inactive_pct":6.3,"inactive_dem":1566,"inactive_una":1546,"reg_margin":0.22},"Wicomico":{"voters":72356,"rep_pct":35.8,"dem_pct":38.0,"una_pct":24.1,"inactive_pct":6.5,"inactive_dem":1862,"inactive_una":1271,"reg_margin":-0.022},"Baltimore County":{"voters":46836,"rep_pct":42.3,"dem_pct":33.3,"una_pct":22.6,"inactive_pct":3.6,"inactive_dem":570,"inactive_una":419,"reg_margin":0.089},"Worcester":{"voters":46818,"rep_pct":45.8,"dem_pct":30.0,"una_pct":22.3,"inactive_pct":5.4,"inactive_dem":687,"inactive_una":692,"reg_margin":0.158},"Queen Anne's":{"voters":43997,"rep_pct":49.2,"dem_pct":26.5,"una_pct":22.7,"inactive_pct":4.0,"inactive_dem":453,"inactive_una":488,"reg_margin":0.227},"Talbot":{"voters":30755,"rep_pct":40.0,"dem_pct":36.0,"una_pct":22.4,"inactive_pct":6.0,"inactive_dem":680,"inactive_una":537,"reg_margin":0.04},"Dorchester":{"voters":25243,"rep_pct":39.9,"dem_pct":38.6,"una_pct":19.6,"inactive_pct":3.6,"inactive_dem":343,"inactive_una":262,"reg_margin":0.014},"Caroline":{"voters":24081,"rep_pct":48.9,"dem_pct":25.8,"una_pct":23.4,"inactive_pct":4.5,"inactive_dem":324,"inactive_una":337,"reg_margin":0.232},"Somerset":{"voters":15253,"rep_pct":42.8,"dem_pct":36.0,"una_pct":19.2,"inactive_pct":3.3,"inactive_dem":185,"inactive_una":134,"reg_margin":0.069},"Kent":{"voters":15073,"rep_pct":38.5,"dem_pct":38.7,"una_pct":21.1,"inactive_pct":4.5,"inactive_dem":259,"inactive_una":184,"reg_margin":-0.003}};
-    const META = {"boundary_source":"Maryland iMap Election Boundaries 2026","precinct_features":549,"precinct_with_cd01_registration":307,"voter_precinct_groups":309,"precinct_with_2024_election":421,"cd01_total_voters":609413,"cohorts":{"dem_active":{"label":"Active DEM","campaigns":["turnout","outreach"],"atomic":true,"count":184853,"pct_cd01":30.33},"una_active_2018plus":{"label":"Active UNA (2018+)","campaigns":["persuasion","outreach"],"atomic":true,"count":53737,"pct_cd01":8.82},"una_active_pre2018":{"label":"Active UNA (pre-2018)","campaigns":["persuasion","outreach"],"atomic":true,"count":80465,"pct_cd01":13.2},"inactive_dem":{"label":"Inactive DEM","campaigns":["registration"],"atomic":true,"count":10295,"pct_cd01":1.69},"inactive_una_2018plus":{"label":"Inactive UNA (2018+)","campaigns":["registration"],"atomic":true,"count":4426,"pct_cd01":0.73},"inactive_una_pre2018":{"label":"Inactive UNA (pre-2018)","campaigns":["registration"],"atomic":true,"count":4682,"pct_cd01":0.77},"inactive_rep":{"label":"Inactive REP","campaigns":["registration"],"atomic":true,"count":10976,"pct_cd01":1.8}},"campaign_tiers":{"A":{"label":"Turnout","hint":"Mobilize active Democrats across selected counties.","cohorts":["dem_active"],"default_checked":["dem_active"]},"B":{"label":"Vote / Persuasion","hint":"Persuade and turn out active UNA (2018+ and pre-2018 are separate cohorts).","cohorts":["una_active_2018plus","una_active_pre2018"],"default_checked":["una_active_2018plus","una_active_pre2018"]},"C":{"label":"Registration","hint":"Re-register inactive voters (DEM, UNA, and REP on the rolls).","cohorts":["inactive_dem","inactive_una_2018plus","inactive_una_pre2018","inactive_rep"],"default_checked":["inactive_dem","inactive_una_2018plus","inactive_una_pre2018","inactive_rep"]},"D":{"label":"Outreach","hint":"Active DEM + active UNA (2018+ and pre-2018) for field contact.","cohorts":["dem_active","una_active_2018plus","una_active_pre2018"],"default_checked":["dem_active","una_active_2018plus","una_active_pre2018"]},"election_context":{"label":"Election context","hint":"Registration and election backdrop layers (not summed cohorts).","cohorts":[],"default_checked":[]}}};
-    const COHORT_KEYS = ["dem_active","una_active_2018plus","una_active_pre2018","inactive_dem","inactive_una_2018plus","inactive_una_pre2018","inactive_rep"];
-    const CD01_SHARE_FIELDS = ["dem_active_cd01_pct","una_active_2018plus_cd01_pct","una_active_pre2018_cd01_pct","inactive_dem_cd01_pct","inactive_una_2018plus_cd01_pct","inactive_una_pre2018_cd01_pct","inactive_rep_cd01_pct","all_una_cd01_pct"];
-    const CAMPAIGN_TIERS = {"A":{"label":"Turnout","hint":"Mobilize active Democrats across selected counties.","cohorts":["dem_active"],"default_checked":["dem_active"]},"B":{"label":"Vote / Persuasion","hint":"Persuade and turn out active UNA (2018+ and pre-2018 are separate cohorts).","cohorts":["una_active_2018plus","una_active_pre2018"],"default_checked":["una_active_2018plus","una_active_pre2018"]},"C":{"label":"Registration","hint":"Re-register inactive voters (DEM, UNA, and REP on the rolls).","cohorts":["inactive_dem","inactive_una_2018plus","inactive_una_pre2018","inactive_rep"],"default_checked":["inactive_dem","inactive_una_2018plus","inactive_una_pre2018","inactive_rep"]},"D":{"label":"Outreach","hint":"Active DEM + active UNA (2018+ and pre-2018) for field contact.","cohorts":["dem_active","una_active_2018plus","una_active_pre2018"],"default_checked":["dem_active","una_active_2018plus","una_active_pre2018"]},"election_context":{"label":"Election context","hint":"Registration and election backdrop layers (not summed cohorts).","cohorts":[],"default_checked":[]}};
-    const ELECTION_METRICS = [{"id":"reg_margin","label":"Registration lean (REP \u2212 DEM)"},{"id":"pct_dem_lead","label":"2024 president (Harris vs Trump margin)"},{"id":"all_una_cd01_pct","label":"All UNA \u2014 % of CD01"}];
+    const COUNTIES = {"Harford":{"voters":199047,"rep_pct":41.5,"dem_pct":32.4,"una_pct":24.3,"reg_margin":0.091},"Cecil":{"voters":74360,"rep_pct":48.4,"dem_pct":25.1,"una_pct":24.5,"reg_margin":0.232},"Wicomico":{"voters":67658,"rep_pct":36.2,"dem_pct":37.8,"una_pct":23.8,"reg_margin":-0.017},"Baltimore County":{"voters":45161,"rep_pct":42.4,"dem_pct":33.3,"una_pct":22.6,"reg_margin":0.091},"Worcester":{"voters":44272,"rep_pct":46.0,"dem_pct":30.2,"una_pct":22.0,"reg_margin":0.158},"Queen Anne's":{"voters":42256,"rep_pct":49.4,"dem_pct":26.5,"una_pct":22.5,"reg_margin":0.229},"Talbot":{"voters":28924,"rep_pct":40.5,"dem_pct":35.9,"una_pct":21.9,"reg_margin":0.046},"Dorchester":{"voters":24324,"rep_pct":40.3,"dem_pct":38.6,"una_pct":19.2,"reg_margin":0.016},"Caroline":{"voters":22995,"rep_pct":49.5,"dem_pct":25.6,"una_pct":23.0,"reg_margin":0.239},"Somerset":{"voters":14753,"rep_pct":43.2,"dem_pct":36.0,"una_pct":19.0,"reg_margin":0.072},"Kent":{"voters":14398,"rep_pct":38.7,"dem_pct":38.7,"una_pct":20.8,"reg_margin":0.0}};
+    const META = {"boundary_source":"Maryland iMap Election Boundaries 2026","precinct_features":549,"precinct_with_cd01_registration":307,"voter_precinct_groups":309,"precinct_with_2024_election":421,"cd01_total_voters":578148,"cohorts":{"dem_active":{"label":"DEM","campaigns":["turnout","outreach"],"atomic":true,"count":184853,"pct_cd01":31.97},"una_active_2018plus":{"label":"UNA (2018+)","campaigns":["persuasion","outreach"],"atomic":true,"count":53737,"pct_cd01":9.29},"una_active_pre2018":{"label":"UNA (pre-2018)","campaigns":["persuasion","outreach"],"atomic":true,"count":80464,"pct_cd01":13.92}},"campaign_tiers":{"A":{"label":"Turnout","hint":"Mobilize Democrats across selected counties.","cohorts":["dem_active"],"default_checked":["dem_active"]},"B":{"label":"Vote / Persuasion","hint":"Persuade and turn out UNA (2018+ and pre-2018 are separate cohorts).","cohorts":["una_active_2018plus","una_active_pre2018"],"default_checked":["una_active_2018plus","una_active_pre2018"]},"D":{"label":"Outreach","hint":"DEM + UNA (2018+ and pre-2018) for field contact.","cohorts":["dem_active","una_active_2018plus","una_active_pre2018"],"default_checked":["dem_active","una_active_2018plus","una_active_pre2018"]},"election_context":{"label":"Election context","hint":"Registration and election backdrop layers (not summed cohorts).","cohorts":[],"default_checked":[]}},"donor_cd01":{"total_dollars":4765477.12,"total_donors":14996,"by_reg_class":{"dem":{"donor_dem":{"donor_count":2350,"dollars":893858.55},"donor_rep":{"donor_count":421,"dollars":120979.63},"donor_association_pac":{"donor_count":923,"dollars":81653.3},"donor_labor_pac":{"donor_count":733,"dollars":102037.15},"donor_issue_pac":{"donor_count":157,"dollars":26610.86},"donor_third_party":{"donor_count":0,"dollars":0.0},"donor_ballot_issue":{"donor_count":35,"dollars":7247.12},"donor_slate":{"donor_count":13,"dollars":1903.44},"donor_public_financing":{"donor_count":86,"dollars":10371.03},"donor_candidate_pending":{"donor_count":528,"dollars":110782.4}},"rep":{"donor_dem":{"donor_count":352,"dollars":294205.77},"donor_rep":{"donor_count":4471,"dollars":1933108.06},"donor_association_pac":{"donor_count":2695,"dollars":247895.68},"donor_labor_pac":{"donor_count":819,"dollars":128148.22},"donor_issue_pac":{"donor_count":39,"dollars":7762.5},"donor_third_party":{"donor_count":7,"dollars":867.96},"donor_ballot_issue":{"donor_count":49,"dollars":26430.8},"donor_slate":{"donor_count":68,"dollars":13571.66},"donor_public_financing":{"donor_count":17,"dollars":2172.25},"donor_candidate_pending":{"donor_count":959,"dollars":312003.76}},"una":{"donor_dem":{"donor_count":287,"dollars":174176.22},"donor_rep":{"donor_count":402,"dollars":142303.53},"donor_association_pac":{"donor_count":566,"dollars":36827.18},"donor_labor_pac":{"donor_count":373,"dollars":49465.04},"donor_issue_pac":{"donor_count":11,"dollars":2889.0},"donor_third_party":{"donor_count":7,"dollars":852.76},"donor_ballot_issue":{"donor_count":4,"dollars":4350.0},"donor_slate":{"donor_count":5,"dollars":300.0},"donor_public_financing":{"donor_count":24,"dollars":3394.51},"donor_candidate_pending":{"donor_count":137,"dollars":29308.74}}},"parties":{"donor_dem":{"label":"DEM","donor_count":2989,"dollars":1362240.54},"donor_rep":{"label":"REP","donor_count":5294,"dollars":2196391.22},"donor_association_pac":{"label":"Association PAC","donor_count":4184,"dollars":366376.16},"donor_labor_pac":{"label":"Labor PAC","donor_count":1925,"dollars":279650.41},"donor_issue_pac":{"label":"Issue PAC","donor_count":207,"dollars":37262.36},"donor_third_party":{"label":"Third_Party","donor_count":14,"dollars":1720.72},"donor_ballot_issue":{"label":"Ballot Issue","donor_count":88,"dollars":38027.92},"donor_slate":{"label":"Slate","donor_count":86,"dollars":15775.1},"donor_public_financing":{"label":"Public Financing","donor_count":127,"dollars":15937.79},"donor_candidate_pending":{"label":"Candidate (pending)","donor_count":1624,"dollars":452094.9}},"source":"md_cris_contrib","match_tiers":"high,medium","class_basis":"recipient_class","reg_parties":["dem","rep","una"]},"donor_county_party":{"Baltimore County":{"dem":{"donor_association_pac":{"donor_count":109,"dollars":20443.56},"donor_ballot_issue":{"donor_count":8,"dollars":5581.5},"donor_candidate_pending":{"donor_count":28,"dollars":5104.22},"donor_dem":{"donor_count":225,"dollars":138062.53},"donor_issue_pac":{"donor_count":10,"dollars":2866.58},"donor_labor_pac":{"donor_count":87,"dollars":11373.26},"donor_public_financing":{"donor_count":39,"dollars":5216.75},"donor_rep":{"donor_count":36,"dollars":18125.39}},"rep":{"donor_association_pac":{"donor_count":204,"dollars":34560.94},"donor_ballot_issue":{"donor_count":5,"dollars":6057.8},"donor_candidate_pending":{"donor_count":68,"dollars":45304.69},"donor_dem":{"donor_count":62,"dollars":92455.42},"donor_issue_pac":{"donor_count":3,"dollars":1275.0},"donor_labor_pac":{"donor_count":62,"dollars":7929.91},"donor_public_financing":{"donor_count":8,"dollars":775.0},"donor_rep":{"donor_count":299,"dollars":223387.32}},"una":{"donor_association_pac":{"donor_count":48,"dollars":4958.3},"donor_candidate_pending":{"donor_count":6,"dollars":3796.0},"donor_dem":{"donor_count":56,"dollars":47795.7},"donor_labor_pac":{"donor_count":43,"dollars":4751.08},"donor_public_financing":{"donor_count":14,"dollars":1740.76},"donor_rep":{"donor_count":45,"dollars":36583.76}}},"Caroline":{"dem":{"donor_association_pac":{"donor_count":52,"dollars":1061.8},"donor_candidate_pending":{"donor_count":14,"dollars":1920.0},"donor_dem":{"donor_count":45,"dollars":6308.86},"donor_issue_pac":{"donor_count":1,"dollars":500.0},"donor_labor_pac":{"donor_count":16,"dollars":3466.69},"donor_rep":{"donor_count":15,"dollars":1641.12}},"rep":{"donor_association_pac":{"donor_count":207,"dollars":7616.7},"donor_ballot_issue":{"donor_count":1,"dollars":50.0},"donor_candidate_pending":{"donor_count":42,"dollars":20750.81},"donor_dem":{"donor_count":7,"dollars":980.0},"donor_labor_pac":{"donor_count":28,"dollars":4397.0},"donor_rep":{"donor_count":270,"dollars":67291.9},"donor_slate":{"donor_count":1,"dollars":279.48},"donor_third_party":{"donor_count":1,"dollars":25.0}},"una":{"donor_association_pac":{"donor_count":32,"dollars":506.18},"donor_candidate_pending":{"donor_count":5,"dollars":385.0},"donor_dem":{"donor_count":5,"dollars":1210.0},"donor_issue_pac":{"donor_count":1,"dollars":210.0},"donor_labor_pac":{"donor_count":11,"dollars":1609.48},"donor_rep":{"donor_count":22,"dollars":2508.62}}},"Cecil":{"dem":{"donor_association_pac":{"donor_count":71,"dollars":2270.02},"donor_ballot_issue":{"donor_count":4,"dollars":128.0},"donor_candidate_pending":{"donor_count":65,"dollars":21048.61},"donor_dem":{"donor_count":102,"dollars":27413.15},"donor_issue_pac":{"donor_count":4,"dollars":560.0},"donor_labor_pac":{"donor_count":34,"dollars":5104.38},"donor_public_financing":{"donor_count":4,"dollars":350.0},"donor_rep":{"donor_count":90,"dollars":14558.68},"donor_slate":{"donor_count":10,"dollars":1453.44}},"rep":{"donor_association_pac":{"donor_count":298,"dollars":12508.3},"donor_ballot_issue":{"donor_count":2,"dollars":150.0},"donor_candidate_pending":{"donor_count":227,"dollars":29970.54},"donor_dem":{"donor_count":28,"dollars":18212.18},"donor_issue_pac":{"donor_count":4,"dollars":325.0},"donor_labor_pac":{"donor_count":135,"dollars":18067.15},"donor_public_financing":{"donor_count":2,"dollars":307.25},"donor_rep":{"donor_count":936,"dollars":169949.96},"donor_slate":{"donor_count":39,"dollars":7285.62},"donor_third_party":{"donor_count":1,"dollars":432.96}},"una":{"donor_association_pac":{"donor_count":48,"dollars":1545.4},"donor_candidate_pending":{"donor_count":26,"dollars":2082.38},"donor_dem":{"donor_count":12,"dollars":2002.0},"donor_labor_pac":{"donor_count":25,"dollars":3034.32},"donor_rep":{"donor_count":105,"dollars":17364.57},"donor_slate":{"donor_count":2,"dollars":60.0}}},"Dorchester":{"dem":{"donor_association_pac":{"donor_count":59,"dollars":2161.7},"donor_candidate_pending":{"donor_count":56,"dollars":11589.77},"donor_dem":{"donor_count":105,"dollars":23091.3},"donor_issue_pac":{"donor_count":12,"dollars":1960.0},"donor_labor_pac":{"donor_count":34,"dollars":4310.2},"donor_public_financing":{"donor_count":1,"dollars":25.0},"donor_rep":{"donor_count":20,"dollars":3808.44}},"rep":{"donor_association_pac":{"donor_count":163,"dollars":5938.1},"donor_candidate_pending":{"donor_count":42,"dollars":7871.69},"donor_dem":{"donor_count":7,"dollars":1786.9},"donor_issue_pac":{"donor_count":1,"dollars":70.0},"donor_labor_pac":{"donor_count":35,"dollars":5838.9},"donor_rep":{"donor_count":197,"dollars":50545.5}},"una":{"donor_association_pac":{"donor_count":16,"dollars":420.9},"donor_candidate_pending":{"donor_count":6,"dollars":1816.21},"donor_dem":{"donor_count":10,"dollars":745.0},"donor_issue_pac":{"donor_count":1,"dollars":10.0},"donor_labor_pac":{"donor_count":15,"dollars":2431.6},"donor_rep":{"donor_count":15,"dollars":1520.7},"donor_third_party":{"donor_count":1,"dollars":255.0}}},"Harford":{"dem":{"donor_association_pac":{"donor_count":245,"dollars":21443.56},"donor_ballot_issue":{"donor_count":7,"dollars":144.0},"donor_candidate_pending":{"donor_count":152,"dollars":32219.9},"donor_dem":{"donor_count":644,"dollars":209537.04},"donor_issue_pac":{"donor_count":24,"dollars":8240.44},"donor_labor_pac":{"donor_count":338,"dollars":44923.29},"donor_public_financing":{"donor_count":23,"dollars":2274.85},"donor_rep":{"donor_count":135,"dollars":47257.44},"donor_slate":{"donor_count":1,"dollars":100.0}},"rep":{"donor_association_pac":{"donor_count":637,"dollars":90104.24},"donor_ballot_issue":{"donor_count":12,"dollars":2400.0},"donor_candidate_pending":{"donor_count":301,"dollars":127725.19},"donor_dem":{"donor_count":127,"dollars":69995.37},"donor_issue_pac":{"donor_count":14,"dollars":2982.5},"donor_labor_pac":{"donor_count":335,"dollars":60436.05},"donor_public_financing":{"donor_count":5,"dollars":770.0},"donor_rep":{"donor_count":1063,"dollars":745238.23},"donor_slate":{"donor_count":3,"dollars":325.0},"donor_third_party":{"donor_count":1,"dollars":50.0}},"una":{"donor_association_pac":{"donor_count":193,"dollars":15543.92},"donor_candidate_pending":{"donor_count":48,"dollars":14023.64},"donor_dem":{"donor_count":98,"dollars":23603.0},"donor_issue_pac":{"donor_count":1,"dollars":130.0},"donor_labor_pac":{"donor_count":174,"dollars":24649.76},"donor_public_financing":{"donor_count":9,"dollars":1628.75},"donor_rep":{"donor_count":93,"dollars":24542.32},"donor_slate":{"donor_count":2,"dollars":140.0},"donor_third_party":{"donor_count":2,"dollars":117.76}}},"Kent":{"dem":{"donor_association_pac":{"donor_count":42,"dollars":3753.0},"donor_ballot_issue":{"donor_count":2,"dollars":510.0},"donor_candidate_pending":{"donor_count":37,"dollars":3851.95},"donor_dem":{"donor_count":150,"dollars":35800.45},"donor_issue_pac":{"donor_count":4,"dollars":819.07},"donor_labor_pac":{"donor_count":16,"dollars":2140.18},"donor_rep":{"donor_count":6,"dollars":1580.0}},"rep":{"donor_association_pac":{"donor_count":129,"dollars":2855.5},"donor_candidate_pending":{"donor_count":28,"dollars":4795.0},"donor_dem":{"donor_count":4,"dollars":365.0},"donor_labor_pac":{"donor_count":9,"dollars":1473.8},"donor_rep":{"donor_count":98,"dollars":34308.16},"donor_slate":{"donor_count":7,"dollars":1250.0}},"una":{"donor_association_pac":{"donor_count":18,"dollars":548.5},"donor_candidate_pending":{"donor_count":7,"dollars":2426.0},"donor_dem":{"donor_count":6,"dollars":6120.0},"donor_issue_pac":{"donor_count":1,"dollars":25.0},"donor_labor_pac":{"donor_count":5,"dollars":1053.4},"donor_rep":{"donor_count":5,"dollars":615.44},"donor_third_party":{"donor_count":1,"dollars":390.0}}},"Queen Anne's":{"dem":{"donor_association_pac":{"donor_count":83,"dollars":4559.4},"donor_ballot_issue":{"donor_count":1,"dollars":25.0},"donor_candidate_pending":{"donor_count":12,"dollars":5506.7},"donor_dem":{"donor_count":238,"dollars":100030.58},"donor_issue_pac":{"donor_count":1,"dollars":30.0},"donor_labor_pac":{"donor_count":48,"dollars":9881.86},"donor_public_financing":{"donor_count":4,"dollars":525.0},"donor_rep":{"donor_count":19,"dollars":3451.21},"donor_slate":{"donor_count":2,"dollars":350.0}},"rep":{"donor_association_pac":{"donor_count":264,"dollars":22873.29},"donor_candidate_pending":{"donor_count":40,"dollars":16187.15},"donor_dem":{"donor_count":35,"dollars":32896.22},"donor_issue_pac":{"donor_count":3,"dollars":835.0},"donor_labor_pac":{"donor_count":98,"dollars":15780.31},"donor_public_financing":{"donor_count":2,"dollars":320.0},"donor_rep":{"donor_count":229,"dollars":80825.19},"donor_slate":{"donor_count":15,"dollars":3006.56},"donor_third_party":{"donor_count":2,"dollars":105.0}},"una":{"donor_association_pac":{"donor_count":54,"dollars":4852.6},"donor_ballot_issue":{"donor_count":1,"dollars":50.0},"donor_candidate_pending":{"donor_count":8,"dollars":515.52},"donor_dem":{"donor_count":24,"dollars":4479.71},"donor_labor_pac":{"donor_count":33,"dollars":4361.6},"donor_rep":{"donor_count":17,"dollars":1076.03},"donor_slate":{"donor_count":1,"dollars":100.0}}},"Somerset":{"dem":{"donor_association_pac":{"donor_count":21,"dollars":416.72},"donor_ballot_issue":{"donor_count":1,"dollars":25.0},"donor_candidate_pending":{"donor_count":2,"dollars":126.0},"donor_dem":{"donor_count":31,"dollars":3949.68},"donor_issue_pac":{"donor_count":7,"dollars":495.0},"donor_labor_pac":{"donor_count":14,"dollars":882.4},"donor_rep":{"donor_count":9,"dollars":1515.0}},"rep":{"donor_association_pac":{"donor_count":80,"dollars":3039.7},"donor_ballot_issue":{"donor_count":2,"dollars":125.0},"donor_candidate_pending":{"donor_count":14,"dollars":1260.0},"donor_dem":{"donor_count":3,"dollars":135.0},"donor_issue_pac":{"donor_count":3,"dollars":270.0},"donor_labor_pac":{"donor_count":9,"dollars":575.3},"donor_rep":{"donor_count":146,"dollars":34116.0}},"una":{"donor_association_pac":{"donor_count":9,"dollars":366.88},"donor_candidate_pending":{"donor_count":1,"dollars":50.0},"donor_dem":{"donor_count":4,"dollars":400.0},"donor_labor_pac":{"donor_count":4,"dollars":118.8},"donor_rep":{"donor_count":5,"dollars":19680.0}}},"Talbot":{"dem":{"donor_association_pac":{"donor_count":65,"dollars":4488.5},"donor_ballot_issue":{"donor_count":2,"dollars":30.0},"donor_candidate_pending":{"donor_count":50,"dollars":15771.86},"donor_dem":{"donor_count":303,"dollars":209280.31},"donor_issue_pac":{"donor_count":12,"dollars":2952.96},"donor_labor_pac":{"donor_count":24,"dollars":3666.1},"donor_public_financing":{"donor_count":4,"dollars":372.52},"donor_rep":{"donor_count":38,"dollars":12233.61}},"rep":{"donor_association_pac":{"donor_count":229,"dollars":12040.64},"donor_ballot_issue":{"donor_count":1,"dollars":1500.0},"donor_candidate_pending":{"donor_count":31,"dollars":6880.13},"donor_dem":{"donor_count":26,"dollars":27673.15},"donor_issue_pac":{"donor_count":3,"dollars":255.0},"donor_labor_pac":{"donor_count":30,"dollars":4495.5},"donor_rep":{"donor_count":552,"dollars":228089.79},"donor_slate":{"donor_count":2,"dollars":1175.0},"donor_third_party":{"donor_count":2,"dollars":255.0}},"una":{"donor_association_pac":{"donor_count":52,"dollars":3593.9},"donor_candidate_pending":{"donor_count":8,"dollars":1451.47},"donor_dem":{"donor_count":23,"dollars":58791.97},"donor_labor_pac":{"donor_count":11,"dollars":1585.45},"donor_rep":{"donor_count":51,"dollars":18157.69},"donor_third_party":{"donor_count":2,"dollars":85.0}}},"Wicomico":{"dem":{"donor_association_pac":{"donor_count":95,"dollars":10489.84},"donor_ballot_issue":{"donor_count":5,"dollars":496.62},"donor_candidate_pending":{"donor_count":80,"dollars":9028.05},"donor_dem":{"donor_count":316,"dollars":69658.88},"donor_issue_pac":{"donor_count":71,"dollars":6936.35},"donor_labor_pac":{"donor_count":82,"dollars":9680.99},"donor_public_financing":{"donor_count":11,"dollars":1606.91},"donor_rep":{"donor_count":15,"dollars":1938.48}},"rep":{"donor_association_pac":{"donor_count":242,"dollars":28937.27},"donor_ballot_issue":{"donor_count":16,"dollars":9743.0},"donor_candidate_pending":{"donor_count":87,"dollars":22123.44},"donor_dem":{"donor_count":29,"dollars":27547.58},"donor_issue_pac":{"donor_count":6,"dollars":1385.0},"donor_labor_pac":{"donor_count":45,"dollars":4371.22},"donor_rep":{"donor_count":317,"dollars":125789.7},"donor_slate":{"donor_count":1,"dollars":250.0}},"una":{"donor_association_pac":{"donor_count":38,"dollars":2398.4},"donor_ballot_issue":{"donor_count":2,"dollars":3700.0},"donor_candidate_pending":{"donor_count":14,"dollars":1815.0},"donor_dem":{"donor_count":26,"dollars":20041.84},"donor_issue_pac":{"donor_count":6,"dollars":2364.0},"donor_labor_pac":{"donor_count":31,"dollars":3647.15},"donor_rep":{"donor_count":14,"dollars":1962.4},"donor_third_party":{"donor_count":1,"dollars":5.0}}},"Worcester":{"dem":{"donor_association_pac":{"donor_count":81,"dollars":10565.2},"donor_ballot_issue":{"donor_count":5,"dollars":307.0},"donor_candidate_pending":{"donor_count":32,"dollars":4615.34},"donor_dem":{"donor_count":191,"dollars":70725.77},"donor_issue_pac":{"donor_count":11,"dollars":1250.46},"donor_labor_pac":{"donor_count":40,"dollars":6607.8},"donor_rep":{"donor_count":38,"dollars":14870.26}},"rep":{"donor_association_pac":{"donor_count":242,"dollars":27421.0},"donor_ballot_issue":{"donor_count":10,"dollars":6405.0},"donor_candidate_pending":{"donor_count":79,"dollars":29135.12},"donor_dem":{"donor_count":24,"dollars":22158.95},"donor_issue_pac":{"donor_count":2,"dollars":365.0},"donor_labor_pac":{"donor_count":33,"dollars":4783.08},"donor_rep":{"donor_count":364,"dollars":173566.31}},"una":{"donor_association_pac":{"donor_count":58,"dollars":2092.2},"donor_ballot_issue":{"donor_count":1,"dollars":600.0},"donor_candidate_pending":{"donor_count":8,"dollars":947.52},"donor_dem":{"donor_count":23,"dollars":8987.0},"donor_issue_pac":{"donor_count":1,"dollars":150.0},"donor_labor_pac":{"donor_count":21,"dollars":2222.4},"donor_public_financing":{"donor_count":1,"dollars":25.0},"donor_rep":{"donor_count":30,"dollars":18292.0}}}},"donor_class_keys":["donor_dem","donor_rep","donor_association_pac","donor_labor_pac","donor_issue_pac","donor_third_party","donor_ballot_issue","donor_slate","donor_public_financing","donor_candidate_pending"],"donor_reg_party_keys":["dem","rep","una"],"donor_reg_party_labels":{"dem":"DEM","rep":"REP","una":"UNA"},"donor_parties":{"donor_dem":{"label":"DEM","donor_count":2989,"dollars":1362240.54},"donor_rep":{"label":"REP","donor_count":5294,"dollars":2196391.22},"donor_association_pac":{"label":"Association PAC","donor_count":4184,"dollars":366376.16},"donor_labor_pac":{"label":"Labor PAC","donor_count":1925,"dollars":279650.41},"donor_issue_pac":{"label":"Issue PAC","donor_count":207,"dollars":37262.36},"donor_third_party":{"label":"Third_Party","donor_count":14,"dollars":1720.72},"donor_ballot_issue":{"label":"Ballot Issue","donor_count":88,"dollars":38027.92},"donor_slate":{"label":"Slate","donor_count":86,"dollars":15775.1},"donor_public_financing":{"label":"Public Financing","donor_count":127,"dollars":15937.79},"donor_candidate_pending":{"label":"Candidate (pending)","donor_count":1624,"dollars":452094.9}},"una_lean_cd01":{"total_mapped":132715,"total_active_una":134201,"tiers":{"una_lean_a":{"label":"Tier A (CRIS\u2192DEM)","count":270},"una_lean_b":{"label":"Tier B (precinct Dem)","count":26950},"una_lean_c":{"label":"Tier C (swing)","count":21664},"una_lean_d":{"label":"Tier D (precinct Rep)","count":83831}},"threshold":0.1,"sources":["precinct_election","md_cris_contrib"]},"una_lean_county_tier":{"Talbot":{"una_lean_a":{"count":20},"una_lean_b":{"count":3643},"una_lean_c":{"count":469},"una_lean_d":{"count":2216}},"Worcester":{"una_lean_a":{"count":20},"una_lean_b":{"count":1087},"una_lean_c":{"count":0},"una_lean_d":{"count":8449}},"Dorchester":{"una_lean_a":{"count":9},"una_lean_b":{"count":1593},"una_lean_c":{"count":1027},"una_lean_d":{"count":2053}},"Cecil":{"una_lean_a":{"count":11},"una_lean_b":{"count":651},"una_lean_c":{"count":1245},"una_lean_d":{"count":16292}},"Somerset":{"una_lean_a":{"count":4},"una_lean_b":{"count":605},"una_lean_c":{"count":577},"una_lean_d":{"count":1615}},"Queen Anne's":{"una_lean_a":{"count":24},"una_lean_b":{"count":0},"una_lean_c":{"count":0},"una_lean_d":{"count":9478}},"Kent":{"una_lean_a":{"count":6},"una_lean_b":{"count":971},"una_lean_c":{"count":381},"una_lean_d":{"count":1643}},"Harford":{"una_lean_a":{"count":94},"una_lean_b":{"count":13994},"una_lean_c":{"count":7746},"una_lean_d":{"count":26493}},"Caroline":{"una_lean_a":{"count":5},"una_lean_b":{"count":0},"una_lean_c":{"count":0},"una_lean_d":{"count":5292}},"Wicomico":{"una_lean_a":{"count":26},"una_lean_b":{"count":4406},"una_lean_c":{"count":4930},"una_lean_d":{"count":5455}},"Baltimore County":{"una_lean_a":{"count":51},"una_lean_b":{"count":0},"una_lean_c":{"count":5289},"una_lean_d":{"count":4845}}},"una_lean_tier_keys":["una_lean_a","una_lean_b","una_lean_c","una_lean_d"],"una_lean_default_keys":["una_lean_a","una_lean_b"],"una_lean_tiers":{"una_lean_a":{"label":"Tier A (CRIS\u2192DEM)","count":270},"una_lean_b":{"label":"Tier B (precinct Dem)","count":26950},"una_lean_c":{"label":"Tier C (swing)","count":21664},"una_lean_d":{"label":"Tier D (precinct Rep)","count":83831}}};
+    const COHORT_KEYS = ["dem_active","una_active_2018plus","una_active_pre2018"];
+    const CD01_SHARE_FIELDS = ["dem_active_cd01_pct","una_active_2018plus_cd01_pct","una_active_pre2018_cd01_pct","donors_cd01_pct","una_lean_cd01_pct"];
+    const CAMPAIGN_TIERS = {"A":{"label":"Turnout","hint":"Mobilize Democrats across selected counties.","cohorts":["dem_active"],"default_checked":["dem_active"]},"B":{"label":"Vote / Persuasion","hint":"Persuade and turn out UNA (2018+ and pre-2018 are separate cohorts).","cohorts":["una_active_2018plus","una_active_pre2018"],"default_checked":["una_active_2018plus","una_active_pre2018"]},"D":{"label":"Outreach","hint":"DEM + UNA (2018+ and pre-2018) for field contact.","cohorts":["dem_active","una_active_2018plus","una_active_pre2018"],"default_checked":["dem_active","una_active_2018plus","una_active_pre2018"]},"election_context":{"label":"Election context","hint":"Registration and election backdrop layers (not summed cohorts).","cohorts":[],"default_checked":[]}};
+    const ELECTION_METRICS = [{"id":"reg_margin","label":"Registration lean (REP \u2212 DEM)"},{"id":"pct_dem_lead","label":"2024 president (Harris vs Trump margin)"},{"id":"donors","label":"Donations ($ raised)"},{"id":"una_lean","label":"UNA lean (tiered)"}];
+    const DONOR_CLASS_KEYS = ["donor_dem","donor_rep","donor_association_pac","donor_labor_pac","donor_issue_pac","donor_third_party","donor_ballot_issue","donor_slate","donor_public_financing","donor_candidate_pending"];
+    const DONOR_CLASS_LABELS = {"donor_dem":"DEM","donor_rep":"REP","donor_association_pac":"Association PAC","donor_labor_pac":"Labor PAC","donor_issue_pac":"Issue PAC","donor_third_party":"Third_Party","donor_ballot_issue":"Ballot Issue","donor_slate":"Slate","donor_public_financing":"Public Financing","donor_candidate_pending":"Candidate (pending)"};
+    const DONOR_REG_PARTY_KEYS = ["dem","rep","una"];
+    const DONOR_REG_PARTY_LABELS = {"dem":"DEM","rep":"REP","una":"UNA"};
+    const UNA_LEAN_TIER_KEYS = ["una_lean_a","una_lean_b","una_lean_c","una_lean_d"];
+    const UNA_LEAN_TIER_LABELS = {"una_lean_a":"Tier A (CRIS\u2192DEM)","una_lean_b":"Tier B (precinct Dem)","una_lean_c":"Tier C (swing)","una_lean_d":"Tier D (precinct Rep)"};
+    const UNA_LEAN_DEFAULT_KEYS = ["una_lean_a","una_lean_b"];
     const DEFAULT_COUNTIES = ["Kent","Queen Anne's"];
     const COMBINED_METRIC = "campaign_combined_cd01_pct";
+    const DONORS_METRIC = "donors";
+    const UNA_LEAN_METRIC = "una_lean";
+    const CAMPAIGN_TYPE_BY_UI = {
+      election_context: "election_context",
+      A: "turnout",
+      B: "persuasion",
+      D: "outreach",
+    };
+    const UI_BY_CAMPAIGN_TYPE = {
+      election_context: "election_context",
+      turnout: "A",
+      persuasion: "B",
+      outreach: "D",
+      fundraising: "A",
+    };
 
     const map = L.map("map", { scrollWheelZoom: true });
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -251,6 +349,9 @@
       DEFAULT_COUNTIES.filter(c => Object.prototype.hasOwnProperty.call(COUNTIES, c))
     );
     const selectedCohortKeys = new Set();
+    const selectedDonorClasses = new Set(DONOR_CLASS_KEYS);
+    const selectedDonorRegParties = new Set(DONOR_REG_PARTY_KEYS);
+    const selectedUnaLeanTiers = new Set(UNA_LEAN_DEFAULT_KEYS);
 
     function isElectionContext() {
       return document.getElementById("campaign-type").value === "election_context";
@@ -260,8 +361,21 @@
       return document.getElementById("campaign-type").value;
     }
 
+    function isDonorsMetric() {
+      return isElectionContext() && activeMetric() === DONORS_METRIC;
+    }
+
+    function isUnaLeanMetric() {
+      return isElectionContext() && activeMetric() === UNA_LEAN_METRIC;
+    }
+
+    function isElectionDataMetric() {
+      return isDonorsMetric() || isUnaLeanMetric();
+    }
+
     function isShareCd01Metric(m) {
-      return m.endsWith("_cd01_pct") || m === COMBINED_METRIC;
+      return m.endsWith("_cd01_pct") || m === COMBINED_METRIC
+        || m === DONORS_METRIC || m === UNA_LEAN_METRIC;
     }
 
     function activeMetric() {
@@ -290,23 +404,81 @@
       return 100 * combinedCohortCount(p) / META.cd01_total_voters;
     }
 
+    function donorDetailField(reg, cls, metric) {
+      return "reg_" + reg + "_" + cls + "_" + metric;
+    }
+
+    function combinedDonorDollars(p) {
+      let sum = 0;
+      selectedDonorRegParties.forEach(reg => {
+        selectedDonorClasses.forEach(cls => {
+          sum += Number(p[donorDetailField(reg, cls, "dollars")]) || 0;
+        });
+      });
+      return sum;
+    }
+
+    function donorFilteredCd01Total() {
+      let sum = 0;
+      const byReg = (META.donor_cd01 && META.donor_cd01.by_reg_class) || {};
+      selectedDonorRegParties.forEach(reg => {
+        const classes = byReg[reg] || {};
+        selectedDonorClasses.forEach(cls => {
+          sum += Number(classes[cls] && classes[cls].dollars) || 0;
+        });
+      });
+      return sum;
+    }
+
+    function donorsCd01Share(p) {
+      const total = donorFilteredCd01Total();
+      if (!total) return 0;
+      return 100 * combinedDonorDollars(p) / total;
+    }
+
+    function combinedUnaLeanCount(p) {
+      let sum = 0;
+      selectedUnaLeanTiers.forEach(k => {
+        sum += Number(p[k + "_count"]) || 0;
+      });
+      return sum;
+    }
+
+    function unaLeanCd01Share(p) {
+      const total = META.una_lean_cd01 && META.una_lean_cd01.total_mapped;
+      if (!total) return 0;
+      return 100 * combinedUnaLeanCount(p) / total;
+    }
+
     function metricValue(p, metric) {
       if (metric === COMBINED_METRIC) return combinedCd01Share(p);
+      if (metric === DONORS_METRIC) return donorsCd01Share(p);
+      if (metric === UNA_LEAN_METRIC) return unaLeanCd01Share(p);
       if (metric === "pct_dem_lead") return p.pct_dem_lead;
       return p[metric];
+    }
+
+    function formatDollars(n) {
+      if (n == null || Number.isNaN(n)) return "—";
+      const v = Math.round(Number(n));
+      if (v >= 1_000_000) return "$" + (v / 1_000_000).toFixed(2) + "M";
+      return "$" + v.toLocaleString();
     }
 
     function computeShareMax() {
       shareMax = {};
       if (!GEO) return;
       const metric = activeMetric();
-      if (metric === COMBINED_METRIC) {
+      if (metric === COMBINED_METRIC || metric === DONORS_METRIC || metric === UNA_LEAN_METRIC) {
         let max = 0;
         filteredFeatures().forEach(f => {
-          const v = combinedCd01Share(f.properties);
+          let v;
+          if (metric === DONORS_METRIC) v = donorsCd01Share(f.properties);
+          else if (metric === UNA_LEAN_METRIC) v = unaLeanCd01Share(f.properties);
+          else v = combinedCd01Share(f.properties);
           if (v > max) max = v;
         });
-        shareMax[COMBINED_METRIC] = max;
+        shareMax[metric] = max;
         return;
       }
       if (!isShareCd01Metric(metric)) return;
@@ -316,9 +488,159 @@
       });
     }
 
+    function donorPartyTotalsForScope() {
+      const totals = {};
+      DONOR_CLASS_KEYS.forEach(k => { totals[k] = { count: 0, dollars: 0 }; });
+      filteredFeatures().forEach(f => {
+        const p = f.properties;
+        selectedDonorRegParties.forEach(reg => {
+          DONOR_CLASS_KEYS.forEach(k => {
+            if (!selectedDonorClasses.has(k)) return;
+            totals[k].count += Number(p[donorDetailField(reg, k, "count")]) || 0;
+            totals[k].dollars += Number(p[donorDetailField(reg, k, "dollars")]) || 0;
+          });
+        });
+      });
+      return totals;
+    }
+
+    function updateDonorDataPanel(nCounties, scopeLabel) {
+      const partyTotals = donorPartyTotalsForScope();
+      let scopeDollars = 0, scopeDonors = 0;
+      const classRows = DONOR_CLASS_KEYS.filter(k => selectedDonorClasses.has(k)).map(k => {
+        const count = partyTotals[k].count;
+        const dollars = partyTotals[k].dollars;
+        scopeDollars += dollars;
+        scopeDonors += count;
+        const label = DONOR_CLASS_LABELS[k] || k;
+        return `<tr><td>${label}</td><td>${count.toLocaleString()}</td>`
+          + `<td>${formatDollars(dollars)}</td></tr>`;
+      }).join("");
+      const partyFoot = `<tr style="font-weight:600;border-top:1px solid #ccc">`
+        + `<td>Total</td><td>${scopeDonors.toLocaleString()}</td>`
+        + `<td>${formatDollars(scopeDollars)}</td></tr>`;
+      document.getElementById("donor-party-table").innerHTML =
+        "<thead><tr><th>Class</th><th>Donor count</th><th>$ total</th></tr></thead>"
+        + "<tbody>" + classRows + partyFoot + "</tbody>";
+      const donorScope = document.getElementById("donor-scope");
+      if (donorScope) {
+        donorScope.textContent = nCounties === Object.keys(COUNTIES).length || nCounties === 0
+          ? "" : "(selected counties)";
+      }
+
+      const countyParty = META.donor_county_party || {};
+      const countyRows = [];
+      [...selectedCounties].sort((a, b) => a.localeCompare(b)).forEach(county => {
+        const byReg = countyParty[county] || {};
+        selectedDonorRegParties.forEach(reg => {
+          const classes = byReg[reg] || {};
+          DONOR_CLASS_KEYS.forEach(k => {
+            if (!selectedDonorClasses.has(k)) return;
+            const rec = classes[k] || { donor_count: 0, dollars: 0 };
+            if (!rec.donor_count && !rec.dollars) return;
+            const regLabel = DONOR_REG_PARTY_LABELS[reg] || reg;
+            const label = DONOR_CLASS_LABELS[k] || k;
+            countyRows.push(
+              `<tr><td>${county}</td><td>${regLabel}</td><td>${label}</td>`
+              + `<td>${Number(rec.donor_count).toLocaleString()}</td>`
+              + `<td>${formatDollars(rec.dollars)}</td></tr>`
+            );
+          });
+        });
+      });
+      document.getElementById("donor-county-table").innerHTML =
+        "<thead><tr><th>County</th><th>Registration</th><th>Class</th>"
+        + "<th>Donor count</th><th>$ total</th></tr></thead>"
+        + "<tbody>" + (countyRows.join("") || "<tr><td colspan='5'>No donations in scope</td></tr>") + "</tbody>";
+
+      document.getElementById("load-status").textContent = nCounties === 0
+        ? "No counties selected"
+        : `${formatDollars(scopeDollars)} raised · ${scopeDonors.toLocaleString()} donors (${scopeLabel})`;
+      const precinctsShown = filteredFeatures().length;
+      const withDonors = filteredFeatures().filter(f => combinedDonorDollars(f.properties) > 0).length;
+      document.getElementById("meta").textContent = nCounties === 0
+        ? "Select at least one county to view donation totals"
+        : `${precinctsShown} precincts shown · ${withDonors} with matched CRIS gifts`;
+    }
+
+    function unaLeanTotalsForScope() {
+      const totals = {};
+      UNA_LEAN_TIER_KEYS.forEach(k => { totals[k] = 0; });
+      filteredFeatures().forEach(f => {
+        const p = f.properties;
+        UNA_LEAN_TIER_KEYS.forEach(k => {
+          if (!selectedUnaLeanTiers.has(k)) return;
+          totals[k] += Number(p[k + "_count"]) || 0;
+        });
+      });
+      return totals;
+    }
+
+    function updateUnaLeanDataPanel(nCounties, scopeLabel) {
+      const tierTotals = unaLeanTotalsForScope();
+      let scopeCount = 0;
+      const tierRows = UNA_LEAN_TIER_KEYS.filter(k => selectedUnaLeanTiers.has(k)).map(k => {
+        const count = tierTotals[k];
+        scopeCount += count;
+        const label = UNA_LEAN_TIER_LABELS[k] || k;
+        return `<tr><td>${label}</td><td>${count.toLocaleString()}</td></tr>`;
+      }).join("");
+      const tierFoot = `<tr style="font-weight:600;border-top:1px solid #ccc">`
+        + `<td>Total</td><td>${scopeCount.toLocaleString()}</td></tr>`;
+      document.getElementById("una-lean-tier-table").innerHTML =
+        "<thead><tr><th>Tier</th><th>Active UNA</th></tr></thead>"
+        + "<tbody>" + tierRows + tierFoot + "</tbody>";
+      const leanScope = document.getElementById("una-lean-scope");
+      if (leanScope) {
+        leanScope.textContent = nCounties === Object.keys(COUNTIES).length || nCounties === 0
+          ? "" : "(selected counties)";
+      }
+
+      const countyTier = META.una_lean_county_tier || {};
+      const countyRows = [];
+      [...selectedCounties].sort((a, b) => a.localeCompare(b)).forEach(county => {
+        const tiers = countyTier[county] || {};
+        UNA_LEAN_TIER_KEYS.forEach(k => {
+          if (!selectedUnaLeanTiers.has(k)) return;
+          const rec = tiers[k] || { count: 0 };
+          if (!rec.count) return;
+          const label = UNA_LEAN_TIER_LABELS[k] || k;
+          countyRows.push(
+            `<tr><td>${county}</td><td>${label}</td>`
+            + `<td>${Number(rec.count).toLocaleString()}</td></tr>`
+          );
+        });
+      });
+      document.getElementById("una-lean-county-table").innerHTML =
+        "<thead><tr><th>County</th><th>Tier</th><th>Active UNA</th></tr></thead>"
+        + "<tbody>" + (countyRows.join("") || "<tr><td colspan='3'>No UNA lean data in scope</td></tr>") + "</tbody>";
+
+      const mapped = META.una_lean_cd01 && META.una_lean_cd01.total_mapped;
+      const activeUna = META.una_lean_cd01 && META.una_lean_cd01.total_active_una;
+      document.getElementById("load-status").textContent = nCounties === 0
+        ? "No counties selected"
+        : `${scopeCount.toLocaleString()} active UNA in checked tiers (${scopeLabel})`;
+      const precinctsShown = filteredFeatures().length;
+      const withLean = filteredFeatures().filter(f => combinedUnaLeanCount(f.properties) > 0).length;
+      document.getElementById("meta").textContent = nCounties === 0
+        ? "Select at least one county to view UNA lean totals"
+        : `${precinctsShown} precincts shown · ${withLean} with checked-tier UNA`
+          + (mapped ? ` · ${mapped.toLocaleString()} mapped of ${activeUna.toLocaleString()} active UNA` : "");
+    }
+
     function updateDataPanel() {
       const nCounties = selectedCounties.size;
-      let totalVoters = 0, repV = 0, demV = 0, unaV = 0, inactDem = 0, inactUna = 0;
+      const scopeLabel = nCounties === Object.keys(COUNTIES).length
+        ? "all CD01 counties" : `${nCounties} ${nCounties === 1 ? "county" : "counties"}`;
+      if (isDonorsMetric()) {
+        updateDonorDataPanel(nCounties, scopeLabel);
+        return;
+      }
+      if (isUnaLeanMetric()) {
+        updateUnaLeanDataPanel(nCounties, scopeLabel);
+        return;
+      }
+      let totalVoters = 0, repV = 0, demV = 0, unaV = 0;
       [...selectedCounties].forEach(name => {
         const c = COUNTIES[name];
         if (!c) return;
@@ -326,17 +648,13 @@
         repV += c.voters * c.rep_pct / 100;
         demV += c.voters * c.dem_pct / 100;
         unaV += c.voters * c.una_pct / 100;
-        inactDem += c.inactive_dem || 0;
-        inactUna += c.inactive_una || 0;
       });
 
       const pctOfCd01 = META.cd01_total_voters > 0
         ? (100 * totalVoters / META.cd01_total_voters).toFixed(1) : "0";
-      const scopeLabel = nCounties === Object.keys(COUNTIES).length
-        ? "all CD01 counties" : `${nCounties} ${nCounties === 1 ? "county" : "counties"}`;
       document.getElementById("load-status").textContent = nCounties === 0
         ? "No counties selected"
-        : `${totalVoters.toLocaleString()} registrants (${scopeLabel}, ${pctOfCd01}% of CD01)`;
+        : `${totalVoters.toLocaleString()} active registrants (${scopeLabel}, ${pctOfCd01}% of CD01)`;
 
       const cohortCounts = {};
       COHORT_KEYS.forEach(k => { cohortCounts[k] = 0; });
@@ -361,40 +679,90 @@
         const pct = totalVoters > 0 ? (100 * count / totalVoters).toFixed(2) : "0.00";
         return `<tr><td>${info.label}</td><td>${count.toLocaleString()}</td><td>${pct}%</td></tr>`;
       }).join("");
+      let cohortFoot = "";
+      if (!isElectionContext() && tableKeys.length > 0 && totalVoters > 0) {
+        let sumCount = 0;
+        tableKeys.forEach(k => { sumCount += cohortCounts[k] || 0; });
+        const sumPct = (100 * sumCount / totalVoters).toFixed(2);
+        cohortFoot = `<tr style="font-weight:600;border-top:1px solid #ccc">`
+          + `<td>Total</td><td>${sumCount.toLocaleString()}</td><td>${sumPct}%</td></tr>`;
+      }
       document.getElementById("cohort-table").innerHTML =
-        `<thead><tr><th>Cohort</th><th>Count</th><th>${pctCol}</th></tr></thead><tbody>${cohortRows}</tbody>`;
+        `<thead><tr><th>Cohort</th><th>Count</th><th>${pctCol}</th></tr></thead>`
+        + "<tbody>" + cohortRows + cohortFoot + "</tbody>";
       const scopeEl = document.getElementById("cohort-scope");
       if (scopeEl) {
         scopeEl.textContent = nCounties === Object.keys(COUNTIES).length || nCounties === 0
           ? "" : "(selected counties)";
       }
 
-      const countyRows = Object.entries(COUNTIES)
-        .filter(([name]) => selectedCounties.has(name))
-        .sort((a, b) => a[0].localeCompare(b[0]))
-        .map(([name, s]) =>
-          `<tr><td>${name}</td><td>${s.voters.toLocaleString()}</td>`
-          + `<td>${s.inactive_dem} / ${s.inactive_una}</td>`
-          + `<td>${s.rep_pct} / ${s.dem_pct} / ${s.una_pct}</td></tr>`
-        ).join("");
-
-      let countyFoot = "";
-      if (nCounties > 1 && totalVoters > 0) {
-        const repPct = (100 * repV / totalVoters).toFixed(1);
-        const demPct = (100 * demV / totalVoters).toFixed(1);
-        const unaPct = (100 * unaV / totalVoters).toFixed(1);
-        countyFoot = `<tr style="font-weight:600;border-top:1px solid #ccc">`
-          + `<td>Selected total</td><td>${totalVoters.toLocaleString()}</td>`
-          + `<td>${inactDem} / ${inactUna}</td>`
-          + `<td>${repPct} / ${demPct} / ${unaPct}</td></tr>`;
+      const countyHeading = document.getElementById("county-table-heading");
+      const useCohortCountyFilter = !isElectionContext();
+      const countyCohortTotals = {};
+      if (useCohortCountyFilter) {
+        filteredFeatures().forEach(f => {
+          const p = f.properties;
+          if (!p.has_cd01_voters) return;
+          const county = p.county;
+          countyCohortTotals[county] = (countyCohortTotals[county] || 0) + combinedCohortCount(p);
+        });
       }
-      document.getElementById("county-table").innerHTML =
-        "<thead><tr><th>County</th><th>Voters</th><th>Inact D/U</th><th>R/D/U%</th></tr></thead>"
-        + "<tbody>" + countyRows + countyFoot + "</tbody>";
+
+      let countyRows = "";
+      let countyFoot = "";
+      if (useCohortCountyFilter) {
+        if (countyHeading) {
+          const nChecked = selectedCohortKeys.size;
+          countyHeading.textContent = nChecked
+            ? `Voters by county (${nChecked} checked cohort${nChecked === 1 ? "" : "s"})`
+            : "Voters by county (no cohorts checked)";
+        }
+        let cohortScopeTotal = 0;
+        countyRows = Object.entries(COUNTIES)
+          .filter(([name]) => selectedCounties.has(name))
+          .sort((a, b) => a[0].localeCompare(b[0]))
+          .map(([name, s]) => {
+            const cohortN = countyCohortTotals[name] || 0;
+            cohortScopeTotal += cohortN;
+            const pctCounty = s.voters > 0
+              ? (100 * cohortN / s.voters).toFixed(1) : "0.0";
+            return `<tr><td>${name}</td><td>${cohortN.toLocaleString()}</td>`
+              + `<td>${pctCounty}%</td></tr>`;
+          }).join("");
+        if (nCounties > 1 && totalVoters > 0) {
+          const scopePct = (100 * cohortScopeTotal / totalVoters).toFixed(1);
+          countyFoot = `<tr style="font-weight:600;border-top:1px solid #ccc">`
+            + `<td>Selected total</td><td>${cohortScopeTotal.toLocaleString()}</td>`
+            + `<td>${scopePct}%</td></tr>`;
+        }
+        document.getElementById("county-table").innerHTML =
+          "<thead><tr><th>County</th><th>In checked cohorts</th><th>% of county active</th></tr></thead>"
+          + "<tbody>" + countyRows + countyFoot + "</tbody>";
+      } else {
+        if (countyHeading) countyHeading.textContent = "Active voters by county";
+        countyRows = Object.entries(COUNTIES)
+          .filter(([name]) => selectedCounties.has(name))
+          .sort((a, b) => a[0].localeCompare(b[0]))
+          .map(([name, s]) =>
+            `<tr><td>${name}</td><td>${s.voters.toLocaleString()}</td>`
+            + `<td>${s.rep_pct} / ${s.dem_pct} / ${s.una_pct}</td></tr>`
+          ).join("");
+        if (nCounties > 1 && totalVoters > 0) {
+          const repPct = (100 * repV / totalVoters).toFixed(1);
+          const demPct = (100 * demV / totalVoters).toFixed(1);
+          const unaPct = (100 * unaV / totalVoters).toFixed(1);
+          countyFoot = `<tr style="font-weight:600;border-top:1px solid #ccc">`
+            + `<td>Selected total</td><td>${totalVoters.toLocaleString()}</td>`
+            + `<td>${repPct} / ${demPct} / ${unaPct}</td></tr>`;
+        }
+        document.getElementById("county-table").innerHTML =
+          "<thead><tr><th>County</th><th>Active voters</th><th>R/D/U%</th></tr></thead>"
+          + "<tbody>" + countyRows + countyFoot + "</tbody>";
+      }
 
       document.getElementById("meta").textContent = nCounties === 0
         ? "Select at least one county to view totals"
-        : `${precinctsShown} precincts shown · ${precinctsWithVoters} with CD01 registrants · ${withElection} with 2024 votes`;
+        : `${precinctsShown} precincts shown · ${precinctsWithVoters} with active CD01 registrants · ${withElection} with 2024 votes`;
     }
 
     function interpolate(a, b, t) {
@@ -407,7 +775,8 @@
     }
 
     function colorScale(metric, value, hasVoters) {
-      if (!hasVoters && !isShareCd01Metric(metric)) return "#cbd5e1";
+      const overlayData = (metric === DONORS_METRIC || metric === UNA_LEAN_METRIC) && Number(value) > 0;
+      if (!hasVoters && !isShareCd01Metric(metric) && !overlayData) return "#cbd5e1";
       if (value == null || Number.isNaN(Number(value))) return "#94a3b8";
       let v = Number(value);
       if (metric === "pct_dem_lead") {
@@ -445,11 +814,10 @@
 
       if (p.has_cd01_voters) {
         const pctCd01 = (100 * p.voters / META.cd01_total_voters).toFixed(2);
-        parts.push('<div class="popup-h">Registration</div>');
-        parts.push(`Registrants: <b>${p.voters.toLocaleString()}</b><br/>`);
-        parts.push(`Share of CD01: ${pctCd01}%<br/>`);
-        parts.push(`REP / DEM / UNA: ${p.rep_pct}% / ${p.dem_pct}% / ${p.una_pct}%<br/>`);
-        parts.push(`Inactive (all parties): ${p.inactive_pct}%`);
+        parts.push('<div class="popup-h">Active registration</div>');
+        parts.push(`Active registrants: <b>${p.voters.toLocaleString()}</b><br/>`);
+        parts.push(`Share of active CD01: ${pctCd01}%<br/>`);
+        parts.push(`REP / DEM / UNA: ${p.rep_pct}% / ${p.dem_pct}% / ${p.una_pct}%`);
 
         const cohortParts = [];
         Object.entries(META.cohorts || {}).forEach(([k, c]) => {
@@ -475,11 +843,52 @@
         }
       }
 
+      const donorLines = [];
+      selectedDonorRegParties.forEach(reg => {
+        selectedDonorClasses.forEach(k => {
+          const dollars = Number(p[donorDetailField(reg, k, "dollars")]) || 0;
+          if (!dollars) return;
+          const regLabel = DONOR_REG_PARTY_LABELS[reg] || reg;
+          const label = DONOR_CLASS_LABELS[k] || k;
+          const count = Number(p[donorDetailField(reg, k, "count")]) || 0;
+          donorLines.push(
+            `${regLabel} · ${label}: <b>${formatDollars(dollars)}</b> (${count.toLocaleString()} donors)`
+          );
+        });
+      });
+      if (donorLines.length) {
+        parts.push('<div class="popup-h">CRIS donations (matched)</div>');
+        parts.push(donorLines.join("<br/>"));
+        parts.push(`<br/>Total: <b>${formatDollars(combinedDonorDollars(p))}</b>`);
+      }
+
+      const leanLines = [];
+      UNA_LEAN_TIER_KEYS.forEach(k => {
+        const n = Number(p[k + "_count"]) || 0;
+        if (!n) return;
+        const label = UNA_LEAN_TIER_LABELS[k] || k;
+        leanLines.push(`${label}: <b>${n.toLocaleString()}</b>`);
+      });
+      if (leanLines.length) {
+        parts.push('<div class="popup-h">UNA lean (estimated)</div>');
+        parts.push(leanLines.join("<br/>"));
+        parts.push(`<br/>Checked tiers: <b>${combinedUnaLeanCount(p).toLocaleString()}</b>`);
+        parts.push("<br/><i>Precinct prior — not individual vote history.</i>");
+      }
+
       parts.push("</div>");
       return parts.join("");
     }
 
     function metricNumerator(metric, p) {
+      if (metric === DONORS_METRIC) {
+        const d = combinedDonorDollars(p);
+        return d > 0 ? d : null;
+      }
+      if (metric === UNA_LEAN_METRIC) {
+        const n = combinedUnaLeanCount(p);
+        return n > 0 ? n : null;
+      }
       if (!p.has_cd01_voters) return null;
       const v = p.voters || 0;
       if (metric === COMBINED_METRIC) return combinedCohortCount(p);
@@ -493,13 +902,19 @@
           return Math.round(p.votes_dem - p.votes_rep);
         return null;
       }
-      if (metric === "all_una_cd01_pct")
-        return p.una_n != null ? p.una_n : Math.round(v * (p.una_pct || 0) / 100);
       return null;
     }
 
     function formatMetricLabel(metric, n) {
       if (n == null || Number.isNaN(n)) return null;
+      if (metric === DONORS_METRIC) {
+        if (n <= 0) return null;
+        return formatDollars(n);
+      }
+      if (metric === UNA_LEAN_METRIC) {
+        if (n <= 0) return null;
+        return n.toLocaleString();
+      }
       if (metric === "reg_margin" || metric === "pct_dem_lead") {
         if (n === 0) return "0";
         return (n > 0 ? "+" : "") + n.toLocaleString();
@@ -531,6 +946,16 @@
           const n = selectedCohortKeys.size;
           cap.textContent = "Sum of " + n + " checked cohort" + (n === 1 ? "" : "s")
             + " — share of " + scope + " registrants in this precinct";
+        } else if (metric === DONORS_METRIC) {
+          const nReg = selectedDonorRegParties.size;
+          const nClass = selectedDonorClasses.size;
+          cap.textContent = nReg + " registration " + (nReg === 1 ? "party" : "parties")
+            + ", " + nClass + " recipient " + (nClass === 1 ? "class" : "classes")
+            + " — share of filtered CD01 $ in this precinct";
+        } else if (metric === UNA_LEAN_METRIC) {
+          const n = selectedUnaLeanTiers.size;
+          cap.textContent = "Sum of " + n + " checked UNA lean " + (n === 1 ? "tier" : "tiers")
+            + " — share of mapped CD01 UNA in this precinct";
         } else {
           cap.textContent = "Darker = larger share of " + scope + " registrants in this precinct";
         }
@@ -541,7 +966,13 @@
         cap.textContent = "Layer metric";
       }
       if (document.getElementById("show-precinct-counts").checked) {
-        cap.textContent += " · Labels show raw count for this layer";
+        if (metric === DONORS_METRIC) {
+          cap.textContent += " · Labels show $ total for checked classes";
+        } else if (metric === UNA_LEAN_METRIC) {
+          cap.textContent += " · Labels show UNA count for checked tiers";
+        } else {
+          cap.textContent += " · Labels show raw count for this layer";
+        }
       }
     }
 
@@ -624,13 +1055,34 @@
       };
     }
 
+    function syncCountyChecks() {
+      const box = document.getElementById("county-checks");
+      if (!box) return;
+      box.querySelectorAll("input[data-county]").forEach(inp => {
+        inp.checked = selectedCounties.has(inp.dataset.county);
+      });
+    }
+
     function updateCampaignUi() {
       const election = isElectionContext();
+      const donorsMode = isDonorsMetric();
+      const unaLeanMode = isUnaLeanMetric();
+      const electionDataMode = isElectionDataMetric();
       document.getElementById("election-context-block").style.display = election ? "block" : "none";
       document.getElementById("campaign-cohorts-block").style.display = election ? "none" : "block";
+      document.getElementById("election-donor-cohorts-block").style.display =
+        election && donorsMode ? "block" : "none";
+      document.getElementById("election-una-lean-block").style.display =
+        election && unaLeanMode ? "block" : "none";
       const hint = document.getElementById("tier-hint");
       if (election) {
-        hint.textContent = "Registration and election backdrop layers.";
+        if (donorsMode) {
+          hint.textContent = "Maryland CRIS gifts matched to CD01 registrants (high/medium match).";
+        } else if (unaLeanMode) {
+          hint.textContent = "Estimated lean for active UNA only (Tier A: CRIS; B/C/D: 2024 precinct prior).";
+        } else {
+          hint.textContent = "Registration and election backdrop layers.";
+        }
       } else {
         const t = CAMPAIGN_TIERS[activeCampaignTier()];
         hint.textContent = t ? t.hint : "";
@@ -638,6 +1090,69 @@
       const showCohortTotals = !election;
       document.getElementById("cohort-totals-heading").style.display = showCohortTotals ? "" : "none";
       document.getElementById("cohort-table").style.display = showCohortTotals ? "" : "none";
+      document.getElementById("donor-totals-heading").style.display = donorsMode ? "" : "none";
+      document.getElementById("donor-party-table").style.display = donorsMode ? "" : "none";
+      document.getElementById("donor-county-heading").style.display = donorsMode ? "" : "none";
+      document.getElementById("donor-county-table").style.display = donorsMode ? "" : "none";
+      document.getElementById("una-lean-totals-heading").style.display = unaLeanMode ? "" : "none";
+      document.getElementById("una-lean-tier-table").style.display = unaLeanMode ? "" : "none";
+      document.getElementById("una-lean-county-heading").style.display = unaLeanMode ? "" : "none";
+      document.getElementById("una-lean-county-table").style.display = unaLeanMode ? "" : "none";
+      document.getElementById("county-table-heading").style.display = electionDataMode ? "none" : "";
+      document.getElementById("county-table").style.display = electionDataMode ? "none" : "";
+    }
+
+    function renderUnaLeanChecks() {
+      const box = document.getElementById("una-lean-checks");
+      box.innerHTML = UNA_LEAN_TIER_KEYS.map(k => {
+        const label = UNA_LEAN_TIER_LABELS[k] || k;
+        const on = selectedUnaLeanTiers.has(k);
+        return `<label><input type="checkbox" ${on ? "checked" : ""} data-una-lean-tier="${k}"/> ${label}</label>`;
+      }).join("");
+      box.querySelectorAll("input").forEach(inp => {
+        inp.addEventListener("change", () => {
+          if (inp.checked) selectedUnaLeanTiers.add(inp.dataset.unaLeanTier);
+          else selectedUnaLeanTiers.delete(inp.dataset.unaLeanTier);
+          draw();
+        });
+      });
+    }
+
+    function renderDonorRegChecks() {
+      const box = document.getElementById("donor-reg-checks");
+      box.innerHTML = DONOR_REG_PARTY_KEYS.map(k => {
+        const label = DONOR_REG_PARTY_LABELS[k] || k;
+        const on = selectedDonorRegParties.has(k);
+        return `<label><input type="checkbox" ${on ? "checked" : ""} data-donor-reg="${k}"/> ${label}</label>`;
+      }).join("");
+      box.querySelectorAll("input").forEach(inp => {
+        inp.addEventListener("change", () => {
+          if (inp.checked) selectedDonorRegParties.add(inp.dataset.donorReg);
+          else selectedDonorRegParties.delete(inp.dataset.donorReg);
+          draw();
+        });
+      });
+    }
+
+    function renderDonorClassChecks() {
+      const box = document.getElementById("donor-class-checks");
+      box.innerHTML = DONOR_CLASS_KEYS.map(k => {
+        const label = DONOR_CLASS_LABELS[k] || k;
+        const on = selectedDonorClasses.has(k);
+        return `<label><input type="checkbox" ${on ? "checked" : ""} data-donor-class="${k}"/> ${label}</label>`;
+      }).join("");
+      box.querySelectorAll("input").forEach(inp => {
+        inp.addEventListener("change", () => {
+          if (inp.checked) selectedDonorClasses.add(inp.dataset.donorClass);
+          else selectedDonorClasses.delete(inp.dataset.donorClass);
+          draw();
+        });
+      });
+    }
+
+    function renderDonorFilters() {
+      renderDonorRegChecks();
+      renderDonorClassChecks();
     }
 
     function renderCohortChecks() {
@@ -663,11 +1178,18 @@
       if (!isElectionContext()) resetCohortSelectionForTier(activeCampaignTier());
       updateCampaignUi();
       if (!isElectionContext()) renderCohortChecks();
+      else if (isDonorsMetric()) renderDonorFilters();
+      else if (isUnaLeanMetric()) renderUnaLeanChecks();
       draw();
     }
 
     document.getElementById("campaign-type").addEventListener("change", onCampaignTypeChange);
-    document.getElementById("election-metric").addEventListener("change", draw);
+    document.getElementById("election-metric").addEventListener("change", () => {
+      updateCampaignUi();
+      if (isDonorsMetric()) renderDonorFilters();
+      else if (isUnaLeanMetric()) renderUnaLeanChecks();
+      draw();
+    });
     document.getElementById("show-precinct-counts").addEventListener("change", draw);
     document.getElementById("cohort-all").addEventListener("click", (e) => {
       e.preventDefault();
@@ -681,8 +1203,390 @@
       renderCohortChecks();
       draw();
     });
+    document.getElementById("donor-reg-all").addEventListener("click", (e) => {
+      e.preventDefault();
+      DONOR_REG_PARTY_KEYS.forEach(k => selectedDonorRegParties.add(k));
+      renderDonorRegChecks();
+      draw();
+    });
+    document.getElementById("donor-reg-none").addEventListener("click", (e) => {
+      e.preventDefault();
+      selectedDonorRegParties.clear();
+      renderDonorRegChecks();
+      draw();
+    });
+    document.getElementById("donor-class-all").addEventListener("click", (e) => {
+      e.preventDefault();
+      DONOR_CLASS_KEYS.forEach(k => selectedDonorClasses.add(k));
+      renderDonorClassChecks();
+      draw();
+    });
+    document.getElementById("donor-class-none").addEventListener("click", (e) => {
+      e.preventDefault();
+      selectedDonorClasses.clear();
+      renderDonorClassChecks();
+      draw();
+    });
+    document.getElementById("una-lean-all").addEventListener("click", (e) => {
+      e.preventDefault();
+      UNA_LEAN_TIER_KEYS.forEach(k => selectedUnaLeanTiers.add(k));
+      renderUnaLeanChecks();
+      draw();
+    });
+    document.getElementById("una-lean-none").addEventListener("click", (e) => {
+      e.preventDefault();
+      selectedUnaLeanTiers.clear();
+      renderUnaLeanChecks();
+      draw();
+    });
+    document.getElementById("una-lean-persuasion").addEventListener("click", (e) => {
+      e.preventDefault();
+      selectedUnaLeanTiers.clear();
+      UNA_LEAN_DEFAULT_KEYS.forEach(k => selectedUnaLeanTiers.add(k));
+      renderUnaLeanChecks();
+      draw();
+    });
+
+    function normalizeRecipientClass(key) {
+      return key.startsWith("donor_") ? key.slice(6) : key;
+    }
+
+    function donorClassKeyFromCriteria(rc) {
+      if (DONOR_CLASS_KEYS.includes(rc)) return rc;
+      const prefixed = rc.startsWith("donor_") ? rc : "donor_" + rc;
+      if (DONOR_CLASS_KEYS.includes(prefixed)) return prefixed;
+      return rc;
+    }
+
+    function parseCriteriaFromUrl() {
+      const params = new URLSearchParams(window.location.search);
+      const raw = params.get("criteria");
+      if (!raw) return null;
+      try {
+        return JSON.parse(raw);
+      } catch (e1) {
+        try {
+          return JSON.parse(decodeURIComponent(raw));
+        } catch (e2) {
+          return null;
+        }
+      }
+    }
+
+    function applyCampaignCriteria(criteria) {
+      if (!criteria || typeof criteria !== "object") {
+        showCampaignCriteriaStatus("Criteria JSON must be an object.", "");
+        return false;
+      }
+      const layer = criteria.election_layer || "cohorts";
+      const electionLayers = new Set([
+        "donors", "una_lean", "reg_margin", "pct_dem_lead",
+      ]);
+      let uiTier;
+      if (layer === "cohorts" || (criteria.cohort_keys && !electionLayers.has(layer))) {
+        uiTier = UI_BY_CAMPAIGN_TYPE[criteria.campaign_type] || "A";
+      } else {
+        uiTier = "election_context";
+      }
+      document.getElementById("campaign-type").value = uiTier;
+
+      if (Array.isArray(criteria.counties) && criteria.counties.length) {
+        selectedCounties.clear();
+        criteria.counties.forEach(c => {
+          if (Object.prototype.hasOwnProperty.call(COUNTIES, c)) selectedCounties.add(c);
+        });
+        syncCountyChecks();
+      }
+
+      if (uiTier === "election_context") {
+        document.getElementById("election-metric").value = layer;
+        if (layer === DONORS_METRIC) {
+          if (Array.isArray(criteria.donor_registration_parties)) {
+            selectedDonorRegParties.clear();
+            criteria.donor_registration_parties.forEach(p => {
+              selectedDonorRegParties.add(String(p).toLowerCase());
+            });
+          }
+          if (Array.isArray(criteria.recipient_classes)) {
+            selectedDonorClasses.clear();
+            criteria.recipient_classes.forEach(rc => {
+              selectedDonorClasses.add(donorClassKeyFromCriteria(String(rc)));
+            });
+          }
+        } else if (layer === UNA_LEAN_METRIC && Array.isArray(criteria.una_lean_tiers)) {
+          selectedUnaLeanTiers.clear();
+          criteria.una_lean_tiers.forEach(t => selectedUnaLeanTiers.add(t));
+        }
+      } else {
+        if (Array.isArray(criteria.cohort_keys) && criteria.cohort_keys.length) {
+          selectedCohortKeys.clear();
+          criteria.cohort_keys.forEach(k => selectedCohortKeys.add(k));
+        } else {
+          resetCohortSelectionForTier(uiTier);
+        }
+      }
+
+      updateCampaignUi();
+      if (!isElectionContext()) renderCohortChecks();
+      else if (isDonorsMetric()) renderDonorFilters();
+      else if (isUnaLeanMetric()) renderUnaLeanChecks();
+      draw();
+
+      const label = criteria.suggested_campaign_name || "Loaded criteria";
+      showCampaignCriteriaStatus(
+        "Loaded map criteria: " + label,
+        "Review the map filters above. Participant lists come from campaign exports, not this view."
+      );
+      return true;
+    }
+
+    function sortedArray(setObj) {
+      return [...setObj].sort((a, b) => a.localeCompare(b));
+    }
+
+    function buildSuggestedCampaignName(criteria) {
+      const countyPart = criteria.counties.length === 1
+        ? criteria.counties[0]
+        : criteria.counties.length
+          ? `${criteria.counties.length} counties`
+          : "CD01";
+      if (criteria.election_layer === "donors") {
+        const regs = (criteria.donor_registration_parties || [])
+          .map(k => (DONOR_REG_PARTY_LABELS[k] || k).toUpperCase()).join("/");
+        const classLabels = (criteria.recipient_classes || []).map(k => {
+          const donorKey = k.startsWith("donor_") ? k : "donor_" + k;
+          return DONOR_CLASS_LABELS[donorKey] || k.toUpperCase();
+        }).join(", ");
+        return `${countyPart} ${regs} donors to ${classLabels}`;
+      }
+      if (criteria.election_layer === "cohorts") {
+        const labels = (criteria.cohort_keys || []).map(k => {
+          const info = META.cohorts[k];
+          return info ? info.label : k;
+        }).join(" + ");
+        const tier = CAMPAIGN_TIERS[activeCampaignTier()];
+        const tierLabel = tier ? tier.label : criteria.campaign_type;
+        return `${countyPart} ${tierLabel}: ${labels}`;
+      }
+      if (criteria.election_layer === "una_lean") {
+        return `${countyPart} UNA lean tiers`;
+      }
+      return `${countyPart} map selection`;
+    }
+
+    function buildMapAggregateHint() {
+      if (selectedCounties.size === 0) {
+        return { note: "No counties selected" };
+      }
+      if (isDonorsMetric()) {
+        let donorCount = 0;
+        filteredFeatures().forEach(f => {
+          const p = f.properties;
+          selectedDonorRegParties.forEach(reg => {
+            selectedDonorClasses.forEach(cls => {
+              donorCount += Number(p[donorDetailField(reg, cls, "count")]) || 0;
+            });
+          });
+        });
+        return {
+          donor_count_summed: donorCount,
+          note: "Precinct sum only; campaign_manager resolve-participants uses DISTINCT VTRID",
+        };
+      }
+      if (!isElectionContext()) {
+        let voters = 0;
+        [...selectedCounties].forEach(name => {
+          const c = COUNTIES[name];
+          if (!c) return;
+          selectedCohortKeys.forEach(k => {
+            voters += Number(c[k]) || 0;
+          });
+        });
+        return {
+          voter_count_summed: voters,
+          note: "County totals for checked cohorts",
+        };
+      }
+      if (activeMetric() === "reg_margin") {
+        let voters = 0;
+        [...selectedCounties].forEach(name => {
+          const c = COUNTIES[name];
+          if (c) voters += Number(c.voters) || 0;
+        });
+        return {
+          active_registrants_summed: voters,
+          note: "Resolves to all active registrants in the selected counties",
+        };
+      }
+      if (activeMetric() === "pct_dem_lead") {
+        return {
+          note: "2024 election-results backdrop; not resolvable to voter IDs (use Registration lean, Donations, a cohort, or saved SQL)",
+        };
+      }
+      return { note: "Visual layer only; use campaign_manager for participant resolution" };
+    }
+
+    function buildCampaignCriteria() {
+      const counties = sortedArray(selectedCounties);
+      const campaignType = CAMPAIGN_TYPE_BY_UI[activeCampaignTier()] || activeCampaignTier();
+      const criteria = {
+        source_type: "map_criteria",
+        campaign_type: campaignType,
+        counties,
+      };
+      if (isElectionContext()) {
+        const layer = activeMetric();
+        criteria.election_layer = layer;
+        if (layer === DONORS_METRIC) {
+          criteria.donor_registration_parties = sortedArray(selectedDonorRegParties);
+          criteria.recipient_classes = sortedArray(selectedDonorClasses).map(normalizeRecipientClass);
+          criteria.match_tiers = ["high", "medium"];
+          criteria.status_code = "A";
+        } else if (layer === UNA_LEAN_METRIC) {
+          criteria.una_lean_tiers = sortedArray(selectedUnaLeanTiers);
+        }
+      } else {
+        criteria.election_layer = "cohorts";
+        criteria.cohort_keys = sortedArray(selectedCohortKeys);
+      }
+      criteria.suggested_campaign_name = buildSuggestedCampaignName(criteria);
+      criteria.map_aggregate_hint = buildMapAggregateHint();
+      criteria.exported_at = new Date().toISOString();
+      return criteria;
+    }
+
+    function campaignCriteriaJson() {
+      return JSON.stringify(buildCampaignCriteria(), null, 2);
+    }
+
+    function campaignCriteriaFilename(criteria) {
+      const slug = (criteria.suggested_campaign_name || "map-criteria")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 80) || "map-criteria";
+      return `cd01_map_criteria_${slug}.json`;
+    }
+
+    function showCampaignCriteriaStatus(message, hint) {
+      const status = document.getElementById("campaign-criteria-status");
+      const hintEl = document.getElementById("campaign-criteria-hint");
+      status.style.display = message ? "block" : "none";
+      status.textContent = message || "";
+      hintEl.style.display = hint ? "block" : "none";
+      hintEl.textContent = hint || "";
+    }
+
+    function campaignManagerHint(criteria) {
+      const name = criteria.suggested_campaign_name || "Map selection";
+      const file = campaignCriteriaFilename(criteria);
+      return [
+        "Next step (local project):",
+        `.venv/bin/python campaign_manager.py save-source --campaign ID --type map_criteria --name "${name}" --criteria-file ${file}`,
+        ".venv/bin/python campaign_manager.py resolve-participants --campaign ID",
+      ].join("\n");
+    }
+
+    async function copyCampaignCriteria() {
+      const criteria = buildCampaignCriteria();
+      const text = JSON.stringify(criteria, null, 2);
+      try {
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(text);
+        } else {
+          const ta = document.createElement("textarea");
+          ta.value = text;
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand("copy");
+          document.body.removeChild(ta);
+        }
+        showCampaignCriteriaStatus(
+          "Copied criteria JSON to clipboard.",
+          campaignManagerHint(criteria)
+        );
+      } catch (err) {
+        showCampaignCriteriaStatus("Could not copy criteria JSON.", String(err));
+      }
+    }
+
+    function downloadCampaignCriteria() {
+      const criteria = buildCampaignCriteria();
+      const text = JSON.stringify(criteria, null, 2);
+      const blob = new Blob([text], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = campaignCriteriaFilename(criteria);
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showCampaignCriteriaStatus(
+        `Downloaded ${a.download}`,
+        campaignManagerHint(criteria)
+      );
+    }
+
+    document.getElementById("campaign-criteria-copy").addEventListener("click", () => {
+      copyCampaignCriteria();
+    });
+    document.getElementById("campaign-criteria-download").addEventListener("click", () => {
+      downloadCampaignCriteria();
+    });
+    document.getElementById("campaign-criteria-load-btn").addEventListener("click", () => {
+      document.getElementById("campaign-criteria-load").click();
+    });
+    document.getElementById("campaign-criteria-load").addEventListener("change", (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const criteria = JSON.parse(reader.result);
+          if (!applyCampaignCriteria(criteria)) {
+            showCampaignCriteriaStatus("Could not apply criteria JSON.", "");
+          }
+        } catch (err) {
+          showCampaignCriteriaStatus("Invalid criteria JSON file.", String(err));
+        }
+        e.target.value = "";
+      };
+      reader.readAsText(file);
+    });
+
     initCountyChecks();
     updateCampaignUi();
+    renderDonorFilters();
+    renderUnaLeanChecks();
+
+    function resetPanelPosition(panel) {
+      panel.style.left = "";
+      panel.style.top = "";
+      panel.style.right = "";
+      localStorage.removeItem("cd01-panel-pos");
+    }
+
+    function clampPanelToViewport(panel) {
+      if (!panel.style.left && !panel.style.top) return;
+      const left = parseFloat(panel.style.left);
+      const top = parseFloat(panel.style.top);
+      if (!Number.isFinite(left) || !Number.isFinite(top)) {
+        resetPanelPosition(panel);
+        return;
+      }
+      const maxL = Math.max(8, window.innerWidth - panel.offsetWidth - 8);
+      const maxT = Math.max(8, window.innerHeight - 48);
+      const clampedL = Math.max(8, Math.min(maxL, left));
+      const clampedT = Math.max(8, Math.min(maxT, top));
+      panel.style.right = "auto";
+      panel.style.left = clampedL + "px";
+      panel.style.top = clampedT + "px";
+      localStorage.setItem("cd01-panel-pos", JSON.stringify({
+        left: clampedL,
+        top: clampedT
+      }));
+    }
 
     function initPanelCollapse() {
       const panel = document.getElementById("control-panel");
@@ -713,11 +1617,24 @@
           panel.style.right = "auto";
           panel.style.left = saved.left + "px";
           panel.style.top = saved.top + "px";
+          clampPanelToViewport(panel);
         }
-      } catch (e) {}
+      } catch (e) {
+        resetPanelPosition(panel);
+      }
+
+      document.getElementById("panel-reset").addEventListener("click", (e) => {
+        e.stopPropagation();
+        resetPanelPosition(panel);
+        panel.classList.remove("collapsed");
+        document.getElementById("panel-toggle").textContent = "−";
+        localStorage.setItem("cd01-panel-collapsed", "0");
+      });
+
+      window.addEventListener("resize", () => clampPanelToViewport(panel));
 
       handle.addEventListener("mousedown", (e) => {
-        if (e.button !== 0 || e.target.closest("#panel-toggle")) return;
+        if (e.button !== 0 || e.target.closest("#panel-toggle, #panel-reset")) return;
         dragging = true;
         panel.classList.add("dragging");
         const rect = panel.getBoundingClientRect();
@@ -747,10 +1664,11 @@
         if (!dragging) return;
         dragging = false;
         panel.classList.remove("dragging");
-        localStorage.setItem("cd01-panel-pos", JSON.stringify({
-          left: parseInt(panel.style.left, 10),
-          top: parseInt(panel.style.top, 10)
-        }));
+        const left = parseInt(panel.style.left, 10);
+        const top = parseInt(panel.style.top, 10);
+        if (Number.isFinite(left) && Number.isFinite(top)) {
+          localStorage.setItem("cd01-panel-pos", JSON.stringify({ left, top }));
+        }
       });
     }
     initPanelCollapse();
@@ -788,7 +1706,12 @@
         computeShareMax();
         document.getElementById("campaign-type").disabled = false;
         document.getElementById("election-metric").disabled = false;
-        draw();
+        const urlCriteria = parseCriteriaFromUrl();
+        if (urlCriteria) {
+          applyCampaignCriteria(urlCriteria);
+        } else {
+          draw();
+        }
       })
       .catch(err => {
         document.getElementById("load-status").style.display = "none";
